@@ -2441,10 +2441,20 @@ Example:
             let whatsappConnected = false;
 
             // Initialize Socket.IO connection
-            function initializeSocketIO() {
+            async function initializeSocketIO() {
                 console.log('🔌 Initializing Socket.IO connection...');
 
+                // Get authenticated user ID from Supabase
+                const { data: { user }, error } = await supabase.auth.getUser();
+                if (!user || error) {
+                    console.error('❌ Cannot initialize Socket.IO without authenticated user:', error);
+                    return;
+                }
+
+                console.log('✓ Authenticating Socket.IO with userId:', user.id);
+
                 socket = io('http://localhost:3000', {
+                    auth: { userId: user.id },  // Pass userId for server-side isolation
                     transports: ['websocket', 'polling']
                 });
 

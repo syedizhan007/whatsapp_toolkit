@@ -32,30 +32,62 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 console.log('✓ Supabase client initialized');
 
-// ===== GLOBAL WHATSAPP CLIENT =====
-let whatsappClient = null;
-let isClientReady = false;
-let clientInfo = null;
-let isInitializing = false;
-let reconnectAttempts = 0;
+// ===== MULTI-USER WHATSAPP CLIENTS =====
+// Each user gets their own isolated WhatsApp client
+const whatsappClients = new Map(); // userId -> { client, isReady, clientInfo, isInitializing, reconnectAttempts }
 const MAX_RECONNECT_ATTEMPTS = 3;
 
-// ===== STATISTICS TRACKING =====
-let stats = {
-    totalMessages: 0,
-    messagesReceived: 0,
-    messagesSent: 0,
-    dealsLocked: 0,
-    numbersValidated: 0,
-    activeCampaigns: 0
-};
+// ===== USER-SPECIFIC STATISTICS TRACKING =====
+const userStats = new Map(); // userId -> stats object
 
-// ===== MESSAGE HISTORY =====
-let messageHistory = [];
+// ===== USER-SPECIFIC MESSAGE HISTORY =====
+const userMessageHistory = new Map(); // userId -> message array
 const MAX_HISTORY = 100;
 
-// ===== DEALS TRACKING =====
-let deals = [];
+// ===== USER-SPECIFIC DEALS TRACKING =====
+const userDeals = new Map(); // userId -> deals array
+
+// Helper functions for user data management
+function getUserData(userId) {
+    if (!whatsappClients.has(userId)) {
+        whatsappClients.set(userId, {
+            client: null,
+            isReady: false,
+            clientInfo: null,
+            isInitializing: false,
+            reconnectAttempts: 0
+        });
+    }
+    return whatsappClients.get(userId);
+}
+
+function getUserStats(userId) {
+    if (!userStats.has(userId)) {
+        userStats.set(userId, {
+            totalMessages: 0,
+            messagesReceived: 0,
+            messagesSent: 0,
+            dealsLocked: 0,
+            numbersValidated: 0,
+            activeCampaigns: 0
+        });
+    }
+    return userStats.get(userId);
+}
+
+function getUserMessages(userId) {
+    if (!userMessageHistory.has(userId)) {
+        userMessageHistory.set(userId, []);
+    }
+    return userMessageHistory.get(userId);
+}
+
+function getUserDeals(userId) {
+    if (!userDeals.has(userId)) {
+        userDeals.set(userId, []);
+    }
+    return userDeals.get(userId);
+}
 
 // ===== AI AGENT CONFIGURATION =====
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
@@ -107,55 +139,64 @@ app.get('/invalid.csv', (req, res) => {
 });
 
 // ===== WHATSAPP CLIENT INITIALIZATION =====
-function initializeWhatsAppClient() {
+function initializeWhatsAppClient(userId) {
+    if (!userId) {
+        console.error('❌ Cannot initialize WhatsApp client without userId');
+        return;
+    }
+
+    const userData = getUserData(userId);
+
     // Prevent multiple simultaneous initializations
-    if (isInitializing) {
-        console.log('⚠️ Client is already initializing, skipping...');
+    if (userData.isInitializing) {
+        console.log(`⚠️ Client for user ${userId} is already initializing, skipping...`);
         return;
     }
 
-    if (whatsappClient && isClientReady) {
-        console.log('⚠️ Client is already ready, skipping initialization...');
+    if (userData.client && userData.isReady) {
+        console.log(`⚠️ Client for user ${userId} is already ready, skipping initialization...`);
         return;
     }
 
-    isInitializing = true;
-    console.log('🔄 Initializing WhatsApp client...');
+    userData.isInitializing = true;
+    console.log(`🔄 Initializing WhatsApp client for user: ${userId}`);
 
-    // Hard Reset: Delete SingletonLock if it exists (blocks initialization)
-    const lockPath = path.join(__dirname, '.wwebjs_auth', 'session-dashboard-client', 'SingletonLock');
+    // User-specific paths
+    const userAuthPath = path.join(__dirname, '.wwebjs_auth', userId);
+    const lockPath = path.join(userAuthPath, 'session', `user-${userId}`, 'SingletonLock');
+
+    // Hard Reset: Delete SingletonLock if it exists
     if (fs.existsSync(lockPath)) {
         try {
             fs.unlinkSync(lockPath);
-            console.log('🗑️ Deleted SingletonLock to prevent hang');
+            console.log(`🗑️ Deleted SingletonLock for user ${userId}`);
         } catch (err) {
-            console.warn('⚠️ Could not delete SingletonLock:', err.message);
+            console.warn(`⚠️ Could not delete SingletonLock for user ${userId}:`, err.message);
         }
     }
 
     // Check if session exists
-    const sessionPath = path.join(__dirname, '.wwebjs_auth');
-    const sessionExists = fs.existsSync(sessionPath);
-    console.log(`📁 Session folder status: ${sessionExists ? 'EXISTS (will try to restore session)' : 'NOT FOUND (will show QR code)'}`);
+    const sessionExists = fs.existsSync(userAuthPath);
+    console.log(`📁 Session folder for user ${userId}: ${sessionExists ? 'EXISTS (will try to restore)' : 'NOT FOUND (will show QR)'}`);
 
     // Destroy existing client if any
-    if (whatsappClient) {
-        console.log('🗑️ Destroying existing client...');
+    if (userData.client) {
+        console.log(`🗑️ Destroying existing client for user ${userId}...`);
         try {
-            whatsappClient.destroy().catch(err => console.log('⚠️ Error destroying client:', err.message));
+            userData.client.destroy().catch(err => console.log(`⚠️ Error destroying client for user ${userId}:`, err.message));
         } catch (err) {
-            console.log('⚠️ Error in destroy:', err.message);
+            console.log(`⚠️ Error in destroy for user ${userId}:`, err.message);
         }
-        whatsappClient = null;
+        userData.client = null;
     }
 
-    whatsappClient = new Client({
+    userData.client = new Client({
         authStrategy: new LocalAuth({
-            clientId: 'dashboard-client',
-            dataPath: path.join(__dirname, '.wwebjs_auth')
+            clientId: `user-${userId}`,  // Unique per user
+            dataPath: userAuthPath        // User-specific auth directory
         }),
         puppeteer: {
-            executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', // Hardcoded Windows Chrome path
+            executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
             headless: true,
             args: [
                 '--no-sandbox',
@@ -170,7 +211,7 @@ function initializeWhatsAppClient() {
                 '--disable-web-security',
                 '--allow-running-insecure-content'
             ],
-            timeout: 60000 // 60 seconds timeout
+            timeout: 60000
         },
         authTimeoutMs: 60000,
         qrTimeoutMs: 60000,
@@ -180,35 +221,34 @@ function initializeWhatsAppClient() {
         }
     });
 
-    // Connection Timeout logic: Restart if initialization hangs
+    // Connection Timeout logic
     let initTimeout = setTimeout(() => {
-        if (isInitializing && !isClientReady) {
-            console.log('🛑 Initialization timed out after 60s. Restarting client...');
-            isInitializing = false;
-            initializeWhatsAppClient();
+        if (userData.isInitializing && !userData.isReady) {
+            console.log(`🛑 Initialization timed out for user ${userId}. Restarting client...`);
+            userData.isInitializing = false;
+            initializeWhatsAppClient(userId);
         }
     }, 60000);
 
     // ===== EVENT: QR Code Generated =====
-    whatsappClient.on('qr', async (qr) => {
-        console.log('📱 QR Code received - waiting for scan');
-        console.log('QR RECEIVED:', qr.substring(0, 50) + '...'); // Log QR for debugging
-        isInitializing = false; // Allow re-initialization if QR expires
+    userData.client.on('qr', async (qr) => {
+        console.log(`📱 QR Code received for user ${userId} - waiting for scan`);
+        console.log('QR RECEIVED:', qr.substring(0, 50) + '...');
+        userData.isInitializing = false;
 
         try {
-            // Generate QR code as data URL
             const qrDataUrl = await qrcode.toDataURL(qr);
 
-            // Emit to all connected clients
-            io.emit('whatsapp:qr', {
+            // Emit only to this user's socket
+            io.to(userId).emit('whatsapp:qr', {
                 qr: qrDataUrl,
                 timestamp: new Date().toISOString()
             });
 
-            console.log('✓ QR Code sent to dashboard');
+            console.log(`✓ QR Code sent to user ${userId}`);
         } catch (error) {
-            console.error('❌ Error generating QR code:', error);
-            io.emit('whatsapp:error', {
+            console.error(`❌ Error generating QR code for user ${userId}:`, error);
+            io.to(userId).emit('whatsapp:error', {
                 error: 'Failed to generate QR code: ' + error.message,
                 timestamp: new Date().toISOString()
             });
@@ -216,55 +256,51 @@ function initializeWhatsAppClient() {
     });
 
     // ===== EVENT: Client Ready =====
-    whatsappClient.on('ready', async () => {
-        console.log('✅ WhatsApp client is READY!');
-        isClientReady = true;
-        isInitializing = false;
-        reconnectAttempts = 0; // Reset reconnect counter on success
+    userData.client.on('ready', async () => {
+        console.log(`✅ WhatsApp client is READY for user ${userId}!`);
+        userData.isReady = true;
+        userData.isInitializing = false;
+        userData.reconnectAttempts = 0;
 
         try {
-            // Get client info
-            const info = whatsappClient.info;
-            clientInfo = {
+            const info = userData.client.info;
+            userData.clientInfo = {
                 name: info.pushname,
                 number: info.wid.user,
                 platform: info.platform,
                 profilePicUrl: null
             };
 
-            console.log('📋 Client info:', {
-                name: clientInfo.name,
-                number: clientInfo.number,
-                platform: clientInfo.platform
+            console.log(`📋 Client info for user ${userId}:`, {
+                name: userData.clientInfo.name,
+                number: userData.clientInfo.number,
+                platform: userData.clientInfo.platform
             });
 
-            // Try to get profile picture with multiple attempts
+            // Try to get profile picture
             let profilePicUrl = null;
             const maxAttempts = 3;
 
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
-                    console.log(`🖼️ Attempting to fetch profile picture (attempt ${attempt}/${maxAttempts})...`);
+                    console.log(`🖼️ Fetching profile picture for user ${userId} (attempt ${attempt}/${maxAttempts})...`);
 
-                    // Try different methods to get profile picture
                     try {
-                        profilePicUrl = await whatsappClient.getProfilePicUrl(info.wid._serialized);
+                        profilePicUrl = await userData.client.getProfilePicUrl(info.wid._serialized);
                     } catch (err1) {
                         console.log('⚠️ Method 1 failed, trying alternative...');
-                        // Try without _serialized
                         try {
-                            profilePicUrl = await whatsappClient.getProfilePicUrl(info.wid.user + '@c.us');
+                            profilePicUrl = await userData.client.getProfilePicUrl(info.wid.user + '@c.us');
                         } catch (err2) {
                             console.log('⚠️ Method 2 failed');
                         }
                     }
 
                     if (profilePicUrl) {
-                        console.log('✅ Profile picture URL obtained:', profilePicUrl.substring(0, 50) + '...');
-                        clientInfo.profilePicUrl = profilePicUrl;
+                        console.log('✅ Profile picture URL obtained');
+                        userData.clientInfo.profilePicUrl = profilePicUrl;
                         break;
                     } else {
-                        console.log(`⚠️ Attempt ${attempt} returned null, waiting 2 seconds...`);
                         await new Promise(resolve => setTimeout(resolve, 2000));
                     }
                 } catch (error) {
@@ -275,31 +311,18 @@ function initializeWhatsAppClient() {
                 }
             }
 
-            if (!profilePicUrl) {
-                console.log('⚠️ Could not fetch profile picture after all attempts - will use default avatar');
-            }
-
-            // Emit ready status to all clients
+            // Emit ready status only to this user
             const readyData = {
                 status: 'connected',
-                info: clientInfo,
+                info: userData.clientInfo,
                 timestamp: new Date().toISOString()
             };
 
-            console.log('📤 Emitting ready event with data:', {
-                ...readyData,
-                info: {
-                    ...readyData.info,
-                    profilePicUrl: readyData.info.profilePicUrl ? 'URL_PROVIDED' : 'NULL'
-                }
-            });
-
-            io.emit('whatsapp:ready', readyData);
-
-            console.log('✓ Client ready event emitted to all connected clients');
+            io.to(userId).emit('whatsapp:ready', readyData);
+            console.log(`✓ Client ready event emitted to user ${userId}`);
         } catch (error) {
-            console.error('❌ Error in ready event handler:', error);
-            io.emit('whatsapp:error', {
+            console.error(`❌ Error in ready event for user ${userId}:`, error);
+            io.to(userId).emit('whatsapp:error', {
                 error: 'Failed to get client info: ' + error.message,
                 timestamp: new Date().toISOString()
             });
@@ -307,106 +330,104 @@ function initializeWhatsAppClient() {
     });
 
     // ===== EVENT: Authentication Success =====
-    whatsappClient.on('authenticated', () => {
-        console.log('🔐 WhatsApp authenticated successfully');
-        isInitializing = false;
-        reconnectAttempts = 0; // Reset on successful auth
-        io.emit('whatsapp:authenticated', {
+    userData.client.on('authenticated', () => {
+        console.log(`🔐 WhatsApp authenticated successfully for user ${userId}`);
+        userData.isInitializing = false;
+        userData.reconnectAttempts = 0;
+        io.to(userId).emit('whatsapp:authenticated', {
             message: 'Authentication successful',
             timestamp: new Date().toISOString()
         });
     });
 
     // ===== EVENT: Authentication Failure =====
-    whatsappClient.on('auth_failure', (msg) => {
-        console.error('❌ CRITICAL: WhatsApp Authentication failed:', msg);
-        isClientReady = false;
-        isInitializing = false;
-        io.emit('whatsapp:auth_failure', {
+    userData.client.on('auth_failure', (msg) => {
+        console.error(`❌ CRITICAL: WhatsApp Authentication failed for user ${userId}:`, msg);
+        userData.isReady = false;
+        userData.isInitializing = false;
+        io.to(userId).emit('whatsapp:auth_failure', {
             error: msg,
             timestamp: new Date().toISOString()
         });
 
-        // Don't auto-reconnect on auth failure - user needs to logout and rescan
-        console.log('⚠️ Session might be corrupted. Delete .wwebjs_auth and restart.');
+        console.log(`⚠️ Session corrupted for user ${userId}. User needs to logout and rescan.`);
     });
 
     // ===== EVENT: Disconnected =====
-    whatsappClient.on('disconnected', (reason) => {
-        console.error('🔌 CRITICAL: WhatsApp disconnected! Reason:', reason);
-        isClientReady = false;
-        isInitializing = false;
+    userData.client.on('disconnected', (reason) => {
+        console.error(`🔌 CRITICAL: WhatsApp disconnected for user ${userId}! Reason:`, reason);
+        userData.isReady = false;
+        userData.isInitializing = false;
         clientInfo = null;
 
-        io.emit('whatsapp:disconnected', {
+        io.to(userId).emit('whatsapp:disconnected', {
             reason: reason,
             timestamp: new Date().toISOString()
         });
 
         // Only attempt reconnect if we haven't exceeded max attempts
-        if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-            reconnectAttempts++;
-            console.log(`⏳ Attempting reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) in 10 seconds...`);
+        if (userData.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            userData.reconnectAttempts++;
+            console.log(`⏳ Attempting reconnect for user ${userId} (${userData.reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}) in 10 seconds...`);
 
             setTimeout(() => {
-                console.log(`🔄 Re-initializing client after disconnect...`);
-                initializeWhatsAppClient();
+                console.log(`🔄 Re-initializing client for user ${userId} after disconnect...`);
+                initializeWhatsAppClient(userId);
             }, 10000);
         }
     });
 
     // ===== EVENT: Loading Screen =====
-    whatsappClient.on('loading_screen', (percent, message) => {
-        console.log(`⏳ Loading: ${percent}% - ${message}`);
-        io.emit('whatsapp:loading', {
+    userData.client.on('loading_screen', (percent, message) => {
+        console.log(`⏳ Loading for user ${userId}: ${percent}% - ${message}`);
+        io.to(userId).emit('whatsapp:loading', {
             percent: percent,
             message: message
         });
     });
 
     // ===== EVENT: Remote Session Saved =====
-    whatsappClient.on('remote_session_saved', () => {
-        console.log('💾 Remote session saved successfully');
-        console.log('✓ Session will persist across server restarts');
-        io.emit('whatsapp:session_saved', {
+    userData.client.on('remote_session_saved', () => {
+        console.log(`💾 Remote session saved successfully for user ${userId}`);
+        io.to(userId).emit('whatsapp:session_saved', {
             message: 'Session saved',
             timestamp: new Date().toISOString()
         });
     });
 
     // ===== EVENT: Change State =====
-    whatsappClient.on('change_state', (state) => {
-        console.log('🔄 Client state changed:', state);
-        io.emit('whatsapp:state_change', {
+    userData.client.on('change_state', (state) => {
+        console.log(`🔄 Client state changed for user ${userId}:`, state);
+        io.to(userId).emit('whatsapp:state_change', {
             state: state,
             timestamp: new Date().toISOString()
         });
     });
 
     // ===== EVENT: General Error Handler =====
-    whatsappClient.on('error', (error) => {
-        console.error('❌ WhatsApp client error:', error);
-        io.emit('whatsapp:error', {
+    userData.client.on('error', (error) => {
+        console.error(`❌ WhatsApp client error for user ${userId}:`, error);
+        io.to(userId).emit('whatsapp:error', {
             error: error.message || 'Unknown error',
             timestamp: new Date().toISOString()
         });
-        // Don't crash - just log the error
     });
 
     // ===== EVENT: Message Received =====
-    whatsappClient.on('message', async (message) => {
+    userData.client.on('message', async (message) => {
         try {
-            console.log('📨 Message received:', {
+            console.log(`📨 Message received for user ${userId}:`, {
                 from: message.from,
                 body: message.body,
                 isGroup: message.from.includes('@g.us')
             });
 
-            // Update statistics
+            // Update user-specific statistics
+            const stats = getUserStats(userId);
             stats.totalMessages++;
             stats.messagesReceived++;
 
-            // Add to message history
+            // Add to user-specific message history
             const messageData = {
                 id: message.id._serialized,
                 from: message.from,
@@ -416,14 +437,15 @@ function initializeWhatsAppClient() {
                 isGroup: message.from.includes('@g.us')
             };
 
-            messageHistory.unshift(messageData);
-            if (messageHistory.length > MAX_HISTORY) {
-                messageHistory.pop();
+            const userMessages = getUserMessages(userId);
+            userMessages.unshift(messageData);
+            if (userMessages.length > MAX_HISTORY) {
+                userMessages.pop();
             }
 
-            // Emit to frontend
-            io.emit('message:received', messageData);
-            io.emit('stats:update', stats);
+            // Emit to this user only
+            io.to(userId).emit('message:received', messageData);
+            io.to(userId).emit('stats:update', stats);
 
             // Skip group messages and newsletters for AI agent
             if (message.from.includes('@g.us') || message.from.includes('@newsletter')) {
@@ -444,7 +466,8 @@ function initializeWhatsAppClient() {
             if (isDealRelated) {
                 console.log('💰 Deal-related message detected');
 
-                // Add to deals tracker
+                // Add to user-specific deals tracker
+                const userDealsArray = getUserDeals(userId);
                 const deal = {
                     id: Date.now().toString(),
                     contact: message.from,
@@ -453,12 +476,12 @@ function initializeWhatsAppClient() {
                     status: 'new'
                 };
 
-                deals.unshift(deal);
+                userDealsArray.unshift(deal);
                 stats.dealsLocked++;
 
-                // Emit to frontend
-                io.emit('deal:new', deal);
-                io.emit('stats:update', stats);
+                // Emit to this user only
+                io.to(userId).emit('deal:new', deal);
+                io.to(userId).emit('stats:update', stats);
             }
 
             // ===== CHECK FOR PHOTO REQUESTS =====
@@ -2515,33 +2538,52 @@ app.post('/api/bulk/settings/dnd', (req, res) => {
 
 // ===== END BULK SENDER API ROUTES =====
 
-// ===== SOCKET.IO CONNECTION =====
+// ===== SOCKET.IO CONNECTION WITH AUTHENTICATION =====
 io.on('connection', (socket) => {
-    console.log('🔌 Client connected:', socket.id);
+    const userId = socket.handshake.auth.userId;
 
-    // Send current status immediately
+    if (!userId) {
+        console.error('❌ Socket connection rejected: No userId provided');
+        socket.emit('whatsapp:error', {
+            error: 'Authentication required. Please refresh the page.',
+            timestamp: new Date().toISOString()
+        });
+        socket.disconnect();
+        return;
+    }
+
+    console.log(`🔌 Client connected: ${socket.id} for user: ${userId}`);
+
+    // Join user-specific room for targeted emissions
+    socket.join(userId);
+
+    // Get user-specific data
+    const userData = getUserData(userId);
+    const stats = getUserStats(userId);
+
+    // Send user-specific status immediately
     socket.emit('whatsapp:status', {
-        connected: isClientReady,
-        info: clientInfo,
+        connected: userData.isReady,
+        info: userData.clientInfo,
         timestamp: new Date().toISOString()
     });
 
-    // Send AI agent status immediately
+    // Send AI agent status (currently global, can be per-user in future)
     socket.emit('ai-agent:status', {
         enabled: aiAgentEnabled
     });
 
     socket.on('disconnect', () => {
-        console.log('🔌 Client disconnected:', socket.id);
+        console.log(`🔌 Client disconnected: ${socket.id} for user: ${userId}`);
     });
 
     // Handle manual reconnect request
     socket.on('whatsapp:reconnect', () => {
-        console.log('🔄 Manual reconnect requested');
+        console.log(`🔄 Manual reconnect requested for user ${userId}`);
 
         // Prevent reconnect if already initializing
-        if (isInitializing) {
-            console.log('⚠️ Already initializing, ignoring reconnect request');
+        if (userData.isInitializing) {
+            console.log(`⚠️ Already initializing for user ${userId}, ignoring reconnect request`);
             socket.emit('whatsapp:error', {
                 error: 'Client is already initializing',
                 timestamp: new Date().toISOString()
@@ -2550,31 +2592,48 @@ io.on('connection', (socket) => {
         }
 
         // Reset reconnect attempts for manual reconnect
-        reconnectAttempts = 0;
+        userData.reconnectAttempts = 0;
 
-        if (whatsappClient) {
-            console.log('🗑️ Destroying existing client before reconnect...');
-            whatsappClient.destroy()
+        if (userData.client) {
+            console.log(`🗑️ Destroying existing client for user ${userId} before reconnect...`);
+            userData.client.destroy()
                 .then(() => {
-                    whatsappClient = null;
-                    isClientReady = false;
-                    console.log('✓ Client destroyed, initializing new client...');
-                    initializeWhatsAppClient();
+                    userData.client = null;
+                    userData.isReady = false;
+                    console.log(`✓ Client destroyed for user ${userId}, initializing new client...`);
+                    initializeWhatsAppClient(userId);
                 })
                 .catch(err => {
-                    console.error('⚠️ Error destroying client:', err.message);
-                    whatsappClient = null;
-                    isClientReady = false;
-                    initializeWhatsAppClient();
+                    console.error(`⚠️ Error destroying client for user ${userId}:`, err.message);
+                    userData.client = null;
+                    userData.isReady = false;
+                    initializeWhatsAppClient(userId);
                 });
         } else {
-            console.log('🔄 No existing client, initializing new one...');
-            initializeWhatsAppClient();
+            console.log(`🔄 No existing client for user ${userId}, initializing new one...`);
+            initializeWhatsAppClient(userId);
         }
     });
 });
 
 // ===== EXPORT CLIENT FOR OTHER MODULES =====
+function getWhatsAppClient(userId) {
+    if (!userId) {
+        console.warn('⚠️ getWhatsAppClient called without userId');
+        return null;
+    }
+    const userData = getUserData(userId);
+    if (userData.isReady && userData.client) {
+        return userData.client;
+    }
+    return null;
+}
+
+function isWhatsAppReady(userId) {
+    if (!userId) return false;
+    const userData = getUserData(userId);
+    return userData.isReady;
+}
 function getWhatsAppClient() {
     if (isClientReady && whatsappClient) {
         return whatsappClient;
