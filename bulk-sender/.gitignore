@@ -1,0 +1,10 @@
+node_modules/
+.wwebjs_auth/
+.wwebjs_cache/
+campaigns.db
+uploads/
+results/
+*.log
+.env
+*.csv
+!contacts_template.csv

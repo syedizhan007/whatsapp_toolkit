@@ -1,0 +1,50 @@
+===============================================
+BROWSER CACHE CLEAR KARNE KE INSTRUCTIONS
+===============================================
+
+METHOD 1: HARD REFRESH (Try this first)
+----------------------------------------
+1. Browser mein http://localhost:3000 kholo
+2. Ctrl + Shift + R press karo (ya Ctrl + F5)
+3. Page reload hoga with fresh files
+
+METHOD 2: DevTools se Cache Clear (If Method 1 doesn't work)
+-------------------------------------------------------------
+1. F12 press karo (DevTools open hoga)
+2. Network tab pe jao
+3. "Disable cache" checkbox ko CHECK karo
+4. Page refresh karo (Ctrl + R)
+
+METHOD 3: Complete Cache Clear (If still not working)
+------------------------------------------------------
+1. Ctrl + Shift + Delete press karo
+2. "Cached images and files" select karo
+3. Time range: "All time" select karo
+4. "Clear data" button click karo
+5. Browser CLOSE karo completely
+6. Browser dobara open karo
+7. http://localhost:3000 pe jao
+
+METHOD 4: Incognito/Private Window (Quick test)
+------------------------------------------------
+1. Ctrl + Shift + N press karo (Chrome)
+   Ya Ctrl + Shift + P (Firefox)
+2. Incognito window mein http://localhost:3000 kholo
+3. Agar yahan sahi kaam kare to cache issue hai
+
+METHOD 5: Server Restart (Last resort)
+---------------------------------------
+1. Terminal mein Ctrl + C press karo (server stop hoga)
+2. Wait 5 seconds
+3. npm start dobara run karo
+4. Browser mein http://localhost:3000 kholo
+
+===============================================
+EXPECTED RESULT:
+===============================================
+- Sirf Dashboard section visible hoga initially
+- Bulk Sender pe click karne se SIRF bulk sender content dikhega
+- Koi bhi section dusre section mein nahi dikhega
+- Console mein "Switching to section:" log NAHI aana chahiye
+
+===============================================

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Section Test</title>
+    <style>
+        .content-section {
+            display: none !important;
+            border: 2px solid red;
+            padding: 20px;
+            margin: 10px;
+        }
+        .content-section.active {
+            display: block !important;
+            border: 2px solid green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Section Visibility Test</h1>
+
+    <button onclick="showSection('section1')">Show Section 1</button>
+    <button onclick="showSection('section2')">Show Section 2</button>
+    <button onclick="showSection('section3')">Show Section 3</button>
+
+    <div id="section1" class="content-section active">
+        <h2>Section 1 Content</h2>
+        <p>This is section 1 content. It should ONLY appear when section 1 is active.</p>
+    </div>
+
+    <div id="section2" class="content-section">
+        <h2>Section 2 Content</h2>
+        <p>This is section 2 content. It should ONLY appear when section 2 is active.</p>
+    </div>
+
+    <div id="section3" class="content-section">
+        <h2>Section 3 Content</h2>
+        <p>This is section 3 content. It should ONLY appear when section 3 is active.</p>
+    </div>
+
+    <script>
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+                section.style.display = 'none';
+            });
+
+            // Show target section
+            const target = document.getElementById(sectionId);
+            if (target) {
+                target.classList.add('active');
+                target.style.display = 'block';
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+                section.style.display = 'none';
+            });
+
+            const section1 = document.getElementById('section1');
+            if (section1) {
+                section1.classList.add('active');
+                section1.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

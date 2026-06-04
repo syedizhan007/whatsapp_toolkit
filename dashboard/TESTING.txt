@@ -1,0 +1,42 @@
+TESTING INSTRUCTIONS - Section Visibility Fix
+==============================================
+
+1. HARD REFRESH THE PAGE:
+   - Press Ctrl + Shift + R (or Ctrl + F5)
+   - This clears browser cache
+
+2. OPEN BROWSER CONSOLE:
+   - Press F12
+   - Go to "Console" tab
+
+3. RUN THIS DIAGNOSTIC:
+   Copy and paste this into console:
+
+   document.querySelectorAll('.content-section').forEach(s => {
+       console.log(s.id + ': display=' + getComputedStyle(s).display + ', active=' + s.classList.contains('active'));
+   });
+
+   EXPECTED OUTPUT:
+   - whatsapp-connection: display=none, active=false
+   - dashboard: display=block, active=true
+   - validator: display=none, active=false
+   - bulk-sender: display=none, active=false
+   - ai-agent: display=none, active=false
+   - deals: display=none, active=false
+   - settings: display=none, active=false
+
+4. TEST SECTION SWITCHING:
+   - Click on "Bulk Sender" in sidebar
+   - Run the diagnostic again
+   - ONLY bulk-sender should show display=block
+
+5. IF STILL SHOWING WRONG CONTENT:
+   Take a screenshot and describe:
+   - Which section are you viewing? (e.g., Dashboard)
+   - What content from bulk-sender is appearing?
+   - Is it the entire bulk-sender section or specific elements?
+
+FIXES APPLIED:
+✓ CSS with !important to prevent override
+✓ JavaScript initialization on page load
+✓ Verified HTML structure is correct

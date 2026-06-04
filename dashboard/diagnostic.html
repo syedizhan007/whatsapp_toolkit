@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Diagnostic Tool</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #00ff00;
+        }
+        .box {
+            background: #1a1a1a;
+            border: 2px solid #00ff00;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+        .success { color: #00ff00; }
+        .error { color: #ff0000; }
+        .warning { color: #ffaa00; }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        pre {
+            background: #000;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 DIAGNOSTIC TOOL - Dashboard Fix Checker</h1>
+
+    <div class="box">
+        <h2>Step 1: Check Main Dashboard File</h2>
+        <button onclick="checkDashboard()">🔍 Check Dashboard</button>
+        <div id="dashboardResult"></div>
+    </div>
+
+    <div class="box">
+        <h2>Step 2: Browser Cache Status</h2>
+        <button onclick="checkCache()">🔍 Check Cache</button>
+        <div id="cacheResult"></div>
+    </div>
+
+    <div class="box">
+        <h2>Step 3: Force Reload Instructions</h2>
+        <div class="warning">
+            <h3>⚠️ If diagnostic shows OLD VERSION:</h3>
+            <ol>
+                <li><strong>Close ALL browser windows</strong></li>
+                <li><strong>Open Incognito/Private window</strong> (Ctrl+Shift+N)</li>
+                <li><strong>Go to:</strong> http://localhost:3000</li>
+                <li><strong>Check if it works in Incognito</strong></li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        async function checkDashboard() {
+            const resultDiv = document.getElementById('dashboardResult');
+            resultDiv.innerHTML = '<p>⏳ Checking dashboard file...</p>';
+
+            try {
+                const response = await fetch('/index.html?nocache=' + Date.now());
+                const html = await response.text();
+
+                // Check for key indicators
+                const hasImportant = html.includes('display: none !important');
+                const hasInitCode = html.includes('CRITICAL: Explicitly hide all sections');
+                const hasCacheBust = html.includes('Cache-Control');
+                const hasOldLog = html.includes('Switching to section:');
+
+                let result = '<h3>Diagnostic Results:</h3><pre>';
+
+                result += hasImportant ?
+                    '✅ CSS !important rules: FOUND\n' :
+                    '❌ CSS !important rules: MISSING\n';
+
+                result += hasInitCode ?
+                    '✅ JavaScript initialization: FOUND\n' :
+                    '❌ JavaScript initialization: MISSING\n';
+
+                result += hasCacheBust ?
+                    '✅ Cache-busting meta tags: FOUND\n' :
+                    '❌ Cache-busting meta tags: MISSING\n';
+
+                result += hasOldLog ?
+                    '❌ OLD CODE DETECTED: "Switching to section:" log found\n' :
+                    '✅ No old code detected\n';
+
+                result += '</pre>';
+
+                if (hasImportant && hasInitCode && !hasOldLog) {
+                    result += '<p class="success">✅✅✅ FILE IS CORRECT! If still not working, it\'s a CACHE issue.</p>';
+                } else {
+                    result += '<p class="error">❌ FILE HAS ISSUES! Need to fix the code.</p>';
+                }
+
+                resultDiv.innerHTML = result;
+
+            } catch (error) {
+                resultDiv.innerHTML = '<p class="error">❌ Error: ' + error.message + '</p>';
+            }
+        }
+
+        function checkCache() {
+            const resultDiv = document.getElementById('cacheResult');
+
+            let result = '<h3>Cache Information:</h3><pre>';
+            result += 'Current Time: ' + new Date().toLocaleString() + '\n';
+            result += 'Page Load Time: ' + performance.timing.domContentLoadedEventEnd + '\n';
+            result += 'Cache Status: ' + (performance.navigation.type === 1 ? 'RELOADED' : 'NORMAL LOAD') + '\n';
+            result += '</pre>';
+
+            result += '<h3>Recommended Actions:</h3>';
+            result += '<ol>';
+            result += '<li><strong>Hard Refresh:</strong> Ctrl + Shift + R</li>';
+            result += '<li><strong>Clear Cache:</strong> Ctrl + Shift + Delete</li>';
+            result += '<li><strong>Incognito Mode:</strong> Ctrl + Shift + N</li>';
+            result += '</ol>';
+
+            resultDiv.innerHTML = result;
+        }
+
+        // Auto-run on load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🔍 Diagnostic tool loaded');
+            checkDashboard();
+        });
+    </script>
+</body>
+</html>

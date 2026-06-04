@@ -1,0 +1,32 @@
+{
+  "name": "whatsapp-mcp-server",
+  "version": "1.0.0",
+  "description": "WhatsApp MCP Server - AI Agent for WhatsApp",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "auto-reply": "node index.js --auto-reply",
+    "standalone": "node index.js --standalone",
+    "status": "node status-server.js",
+    "test-groq": "node test-groq.js",
+    "test-responses": "node test-auto-reply.js",
+    "test-images": "node test-image-feature.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "mcp",
+    "ai",
+    "agent",
+    "claude"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.5.0",
+    "express": "^4.22.1",
+    "node-fetch": "^3.3.2",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.23.0"
+  }
+}

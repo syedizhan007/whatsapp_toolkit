@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Section Test - FIXED VERSION</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a2e;
+            color: white;
+        }
+        .nav {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: #0f3460;
+            color: white;
+            border: 1px solid #16213e;
+            border-radius: 5px;
+        }
+        button:hover {
+            background: #16213e;
+        }
+        .content-section {
+            display: none !important;
+            padding: 20px;
+            background: #16213e;
+            border-radius: 10px;
+            margin-top: 20px;
+            border: 2px solid #e94560;
+        }
+        .content-section.active {
+            display: block !important;
+            border-color: #00ff00;
+        }
+        .status {
+            padding: 10px;
+            background: #0f3460;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .success { color: #00ff00; }
+        .error { color: #ff0000; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Section Visibility Test - FIXED VERSION</h1>
+
+    <div class="status">
+        <strong>Test Status:</strong> <span id="status">Loading...</span>
+    </div>
+
+    <div class="nav">
+        <button onclick="showSection('section1')">Show Section 1</button>
+        <button onclick="showSection('section2')">Show Section 2</button>
+        <button onclick="showSection('section3')">Show Section 3</button>
+    </div>
+
+    <div id="section1" class="content-section active">
+        <h2>✅ Section 1 Content</h2>
+        <p>This is ONLY Section 1 content.</p>
+        <p>If you can see Section 2 or Section 3 content here, the fix is NOT working.</p>
+    </div>
+
+    <div id="section2" class="content-section">
+        <h2>✅ Section 2 Content</h2>
+        <p>This is ONLY Section 2 content.</p>
+        <p>If you can see Section 1 or Section 3 content here, the fix is NOT working.</p>
+    </div>
+
+    <div id="section3" class="content-section">
+        <h2>✅ Section 3 Content</h2>
+        <p>This is ONLY Section 3 content.</p>
+        <p>If you can see Section 1 or Section 2 content here, the fix is NOT working.</p>
+    </div>
+
+    <script>
+        console.log('✓ Test page loaded - NEW VERSION');
+
+        function showSection(sectionId) {
+            console.log('✓ showSection called for:', sectionId);
+
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+                section.style.display = 'none';
+            });
+
+            // Show target section
+            const target = document.getElementById(sectionId);
+            if (target) {
+                target.classList.add('active');
+                target.style.display = 'block';
+                updateStatus('✓ Showing: ' + sectionId, true);
+            }
+        }
+
+        function updateStatus(message, success) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = success ? 'success' : 'error';
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('✓ Initializing sections...');
+
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+                section.style.display = 'none';
+            });
+
+            // Show section1
+            const section1 = document.getElementById('section1');
+            if (section1) {
+                section1.classList.add('active');
+                section1.style.display = 'block';
+            }
+
+            updateStatus('✓ Test page ready - Only Section 1 should be visible', true);
+            console.log('✓ Initialization complete');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - WhatsApp Business Toolkit</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E💬%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --primary: #00d4ff;
+            --secondary: #7c3aed;
+            --dark-bg: #0a0e27;
+            --card-bg: rgba(15, 23, 42, 0.8);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .login-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 450px;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .logo i {
+            font-size: 64px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo h1 {
+            font-size: 28px;
+            margin-top: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo p {
+            color: var(--text-secondary);
+            margin-top: 8px;
+            font-size: 14px;
+        }
+
+        .google-btn {
+            width: 100%;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 12px;
+            color: #1f2937;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .google-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 1);
+        }
+
+        .google-btn:active {
+            transform: translateY(0);
+        }
+
+        .google-btn i {
+            font-size: 20px;
+            color: #4285f4;
+        }
+
+        .info-text {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 24px;
+            line-height: 1.6;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: var(--primary);
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        @media (max-width: 480px) {
+            .login-card {
+                padding: 32px 24px;
+            }
+
+            .logo h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo">
+                <i class="fab fa-whatsapp"></i>
+                <h1>WhatsApp Toolkit</h1>
+                <p>Business Communication Made Easy</p>
+            </div>
+
+            <button id="google-signin-btn" class="google-btn">
+                <i class="fab fa-google"></i>
+                Sign in with Google
+            </button>
+
+            <div id="loading" class="loading">
+                <i class="fas fa-spinner fa-spin"></i> Signing in...
+            </div>
+
+            <div id="success-message" class="loading" style="display: none; color: var(--success);">
+                <i class="fas fa-check-circle"></i>
+                <p style="margin-top: 8px;">Login successful!</p>
+                <button id="continue-btn" class="google-btn" style="margin-top: 16px; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white;">
+                    <i class="fas fa-arrow-right"></i>
+                    Continue to Dashboard
+                </button>
+            </div>
+
+            <p class="info-text">
+                Secure authentication powered by Supabase.<br>
+                Click the button above to sign in with your Google account.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            console.log('=== Login Script Started ===');
+
+            // Check if Supabase library loaded
+            if (!window.supabase) {
+                console.error('ERROR: Supabase library not loaded!');
+                alert('Error: Supabase library failed to load. Please refresh the page.');
+                return;
+            } else {
+                console.log('✓ Supabase library loaded successfully');
+            }
+
+            // Initialize Supabase client
+            const SUPABASE_URL = 'https://xrphyjkrzolqyowkkvzf.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhycGh5amtyem9scXlvd2trdnpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NjM5NTIsImV4cCI6MjA5MzUzOTk1Mn0.Tk-ESBR82crBvISHFJAP2JE_zmkUc4YRgB7VgQtRBFE';
+
+            console.log('Initializing Supabase client...');
+            console.log('URL:', SUPABASE_URL);
+            console.log('Key (first 20 chars):', SUPABASE_KEY.substring(0, 20) + '...');
+
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                auth: {
+                    persistSession: true,
+                    detectSessionInUrl: true,
+                    autoRefreshToken: true,
+                    storage: window.localStorage
+                }
+            });
+            console.log('✓ Supabase client created successfully');
+
+            // Flags to prevent multiple redirects
+            let isRedirecting = false;
+            let isProcessingOAuth = false;
+
+            // Check if we're handling OAuth callback
+            const hasOAuthCallback = window.location.hash && window.location.hash.includes('access_token');
+
+            if (hasOAuthCallback) {
+                console.log('OAuth callback detected in URL - processing...');
+                isProcessingOAuth = true;
+            }
+
+            // Handle OAuth callback - parse URL hash for access token
+            async function handleOAuthCallback() {
+                if (isRedirecting) {
+                    console.log('Already redirecting, skipping OAuth callback handler');
+                    return;
+                }
+
+                const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
+
+                if (accessToken) {
+                    console.log('✓ OAuth callback detected with access token');
+                    console.log('Setting session from URL hash...');
+
+                    try {
+                        const { data, error } = await supabase.auth.setSession({
+                            access_token: accessToken,
+                            refresh_token: refreshToken
+                        });
+
+                        if (error) {
+                            console.error('Error setting session:', error);
+                            alert('Failed to complete sign in: ' + error.message);
+                            isProcessingOAuth = false;
+                        } else {
+                            console.log('✓ Session set successfully');
+                            console.log('Showing success message - waiting for user interaction');
+
+                            // Clear the hash from URL
+                            window.history.replaceState(null, '', window.location.pathname);
+
+                            // Show success message instead of auto-redirecting
+                            showSuccessMessage();
+                        }
+                    } catch (error) {
+                        console.error('Exception handling OAuth callback:', error);
+                        isProcessingOAuth = false;
+                    }
+                }
+            }
+
+            // Show success message and wait for user interaction
+            function showSuccessMessage() {
+                // Prevent multiple executions
+                if (isRedirecting) {
+                    console.log('Already redirecting, skipping showSuccessMessage');
+                    return;
+                }
+
+                console.log('=== showSuccessMessage called ===');
+                isRedirecting = true;
+
+                // Set localStorage flag for index.html
+                localStorage.setItem('isLoggedIn', 'true');
+                console.log('✓ localStorage isLoggedIn set to true');
+
+                // Clear URL hash to prevent re-processing
+                if (window.location.hash) {
+                    console.log('Clearing URL hash');
+                    window.history.replaceState(null, '', window.location.pathname);
+                }
+
+                // Hide loading and sign-in button
+                const loadingEl = document.getElementById('loading');
+                const signInBtn = document.getElementById('google-signin-btn');
+                const successMsg = document.getElementById('success-message');
+                const continueBtn = document.getElementById('continue-btn');
+
+                console.log('Elements found:', {
+                    loadingEl: !!loadingEl,
+                    signInBtn: !!signInBtn,
+                    successMsg: !!successMsg,
+                    continueBtn: !!continueBtn
+                });
+
+                if (loadingEl) {
+                    loadingEl.style.display = 'none';
+                    console.log('✓ Loading hidden');
+                }
+
+                if (signInBtn) {
+                    signInBtn.style.display = 'none';
+                    console.log('✓ Sign-in button hidden');
+                }
+
+                if (successMsg) {
+                    successMsg.style.display = 'block';
+                    console.log('✓ Success message shown');
+                }
+
+                const dashboardUrl = window.location.origin + '/';
+                console.log('Dashboard URL:', dashboardUrl);
+
+                // Auto-redirect after 2 seconds
+                console.log('Setting up auto-redirect in 2 seconds...');
+                setTimeout(() => {
+                    console.log('=== AUTO-REDIRECT TRIGGERED ===');
+                    console.log('Redirecting to:', dashboardUrl);
+                    window.location.replace(dashboardUrl);
+                }, 2000);
+
+                // Add click handler for immediate redirect
+                if (continueBtn) {
+                    console.log('✓ Continue button found, adding click handler');
+
+                    continueBtn.onclick = function() {
+                        console.log('=== CONTINUE BUTTON CLICKED ===');
+                        console.log('Redirecting immediately to:', dashboardUrl);
+                        window.location.replace(dashboardUrl);
+                    };
+
+                    console.log('✓ Click handler attached');
+                } else {
+                    console.error('ERROR: Continue button not found!');
+                }
+            }
+
+            // Auth state change listener - only redirect if NOT processing OAuth
+            supabase.auth.onAuthStateChange((event, session) => {
+                console.log('Auth state changed:', event);
+
+                // Don't redirect if we're already redirecting or processing OAuth callback
+                if (isRedirecting || isProcessingOAuth) {
+                    console.log('Skipping auth state redirect (already handling)');
+                    return;
+                }
+
+                if (event === 'SIGNED_IN' && session) {
+                    console.log('✓ User signed in via auth state change');
+                    // Show success message instead of auto-redirecting
+                    showSuccessMessage();
+                }
+
+                if (event === 'SIGNED_OUT') {
+                    console.log('User signed out');
+                }
+            });
+
+            // Check if user is already logged in
+            async function checkAuth() {
+                // Don't check auth if processing OAuth callback
+                if (isProcessingOAuth || isRedirecting) {
+                    console.log('Skipping checkAuth (processing OAuth or redirecting)');
+                    return;
+                }
+
+                console.log('Checking existing auth session...');
+                try {
+                    const { data: { session }, error } = await supabase.auth.getSession();
+
+                    if (error) {
+                        console.error('Error checking session:', error);
+                        return;
+                    }
+
+                    if (session) {
+                        console.log('✓ User already logged in');
+                        // Show success message instead of auto-redirecting
+                        showSuccessMessage();
+                    } else {
+                        console.log('No existing session found - ready for login');
+                    }
+                } catch (error) {
+                    console.error('Exception in checkAuth:', error);
+                }
+            }
+
+            // Handle Google Sign In
+            async function handleGoogleSignIn() {
+                console.log('=== Google Sign In Button Clicked ===');
+
+                const loadingEl = document.getElementById('loading');
+                const btnEl = document.getElementById('google-signin-btn');
+
+                try {
+                    console.log('Showing loading state...');
+                    loadingEl.classList.add('active');
+                    btnEl.disabled = true;
+
+                    console.log('Calling signInWithOAuth...');
+                    console.log('Provider: google');
+                    console.log('Redirect URL:', window.location.origin + '/login.html');
+
+                    const { data, error } = await supabase.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: {
+                            redirectTo: window.location.origin + '/login.html'
+                        }
+                    });
+
+                    console.log('signInWithOAuth response:');
+                    console.log('Data:', data);
+                    console.log('Error:', error);
+
+                    if (error) {
+                        console.error('ERROR from Supabase:', error);
+                        console.error('Error message:', error.message);
+                        console.error('Error details:', error);
+                        alert('Error: ' + error.message);
+                        throw error;
+                    }
+
+                    console.log('✓ OAuth initiated successfully');
+                    console.log('Waiting for redirect...');
+                    // OAuth redirect will happen automatically
+
+                } catch (error) {
+                    console.error('=== CATCH ERROR ===');
+                    console.error('Error type:', error.constructor.name);
+                    console.error('Error message:', error.message);
+                    console.error('Error stack:', error.stack);
+                    console.error('Full error:', error);
+
+                    alert('Failed to sign in with Google.\n\nError: ' + error.message + '\n\nCheck console for details.');
+
+                    loadingEl.classList.remove('active');
+                    btnEl.disabled = false;
+                }
+            }
+
+            // Event listeners
+            console.log('Setting up event listener for Google Sign In button...');
+            const googleBtn = document.getElementById('google-signin-btn');
+
+            if (!googleBtn) {
+                console.error('ERROR: Google Sign In button not found!');
+            } else {
+                console.log('✓ Google Sign In button found');
+                googleBtn.addEventListener('click', (e) => {
+                    console.log('Button click event fired!');
+                    handleGoogleSignIn();
+                });
+                console.log('✓ Event listener attached');
+            }
+
+            // Initialize - handle OAuth callback first, then check auth
+            if (hasOAuthCallback) {
+                console.log('Processing OAuth callback...');
+                handleOAuthCallback();
+            } else {
+                // Wait 1 second before checking auth to let Supabase initialize
+                console.log('Waiting for Supabase to initialize...');
+                setTimeout(() => {
+                    checkAuth();
+                }, 1000);
+            }
+
+            console.log('=== Login Script Initialization Complete ===');
+        })();
+    </script>
+</body>
+</html>

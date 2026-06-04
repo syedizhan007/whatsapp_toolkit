@@ -1,0 +1,27 @@
+{
+  "name": "whatsapp-toolkit-dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard for WhatsApp Business Toolkit with WhatsApp Web Integration",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "dashboard",
+    "toolkit",
+    "whatsapp-web"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "whatsapp-web.js": "^1.23.0",
+    "socket.io": "^4.6.1",
+    "qrcode": "^1.5.3",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

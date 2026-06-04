@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Data Sync Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #333; }
+        .pass { background: #002200; border-color: #0f0; }
+        .fail { background: #220000; border-color: #f00; color: #f00; }
+        .loading { background: #222200; border-color: #ff0; color: #ff0; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Data Sync Test</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        function addTest(name, status, message) {
+            const div = document.createElement('div');
+            div.className = `test ${status}`;
+            div.innerHTML = `<strong>${name}:</strong> ${message}`;
+            results.appendChild(div);
+        }
+
+        async function runTests() {
+            // Test 1: Agent Status API
+            try {
+                addTest('Agent Status API', 'loading', 'Testing...');
+                const agentRes = await fetch('/api/agent/status');
+                const agentData = await agentRes.json();
+
+                if (agentData.success && agentData.data) {
+                    const status = agentData.data.status || 'unknown';
+                    addTest('Agent Status API', 'pass', `✓ Returns: ${status}`);
+                } else {
+                    addTest('Agent Status API', 'fail', '✗ Invalid response structure');
+                }
+            } catch (e) {
+                addTest('Agent Status API', 'fail', `✗ Error: ${e.message}`);
+            }
+
+            // Test 2: Blacklist API
+            try {
+                addTest('Blacklist API', 'loading', 'Testing...');
+                const blacklistRes = await fetch('/api/campaigns/blacklist/all');
+                const blacklistData = await blacklistRes.json();
+
+                if (blacklistData.success && Array.isArray(blacklistData.data)) {
+                    addTest('Blacklist API', 'pass', `✓ Returns ${blacklistData.data.length} items`);
+                } else {
+                    addTest('Blacklist API', 'fail', '✗ Invalid response structure');
+                }
+            } catch (e) {
+                addTest('Blacklist API', 'fail', `✗ Error: ${e.message}`);
+            }
+
+            // Test 3: Campaigns API
+            try {
+                addTest('Campaigns API', 'loading', 'Testing...');
+                const campaignsRes = await fetch('/api/campaigns');
+                const campaignsData = await campaignsRes.json();
+
+                if (campaignsData.success && Array.isArray(campaignsData.data)) {
+                    addTest('Campaigns API', 'pass', `✓ Returns ${campaignsData.data.length} items`);
+                } else {
+                    addTest('Campaigns API', 'fail', '✗ Invalid response structure');
+                }
+            } catch (e) {
+                addTest('Campaigns API', 'fail', `✗ Error: ${e.message}`);
+            }
+
+            // Test 4: Dashboard HTML Elements
+            addTest('Dashboard HTML', 'loading', 'Checking...');
+            const dashboardRes = await fetch('/dashboard.html');
+            const dashboardHtml = await dashboardRes.text();
+
+            const hasBlacklistContainer = dashboardHtml.includes('id="blacklistContainer"');
+            const hasStatusIndicator = dashboardHtml.includes('class="status-indicator"');
+            const defaultsToOffline = dashboardHtml.includes('status-dot offline');
+
+            if (hasBlacklistContainer && hasStatusIndicator && defaultsToOffline) {
+                addTest('Dashboard HTML', 'pass', '✓ All required elements present with correct defaults');
+            } else {
+                addTest('Dashboard HTML', 'fail', `✗ Missing elements: ${!hasBlacklistContainer ? 'blacklistContainer ' : ''}${!hasStatusIndicator ? 'status-indicator ' : ''}${!defaultsToOffline ? 'offline-default' : ''}`);
+            }
+
+            addTest('Test Complete', 'pass', 'All tests finished. Check results above.');
+        }
+
+        runTests();
+    </script>
+</body>
+</html>
