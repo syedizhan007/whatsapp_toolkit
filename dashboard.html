@@ -6216,6 +6216,11 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
         window.loadCampaigns = loadCampaigns;
         window.loadBlacklist = loadBlacklist;
 
+        // Template rotation functions
+        window.addTemplateField = addTemplateField;
+        window.removeTemplateField = removeTemplateField;
+        window.collectTemplates = collectTemplates;
+
         setTimeout(() => {
             if (document.getElementById('campaignsTableBody')) {
                 loadCampaigns();
