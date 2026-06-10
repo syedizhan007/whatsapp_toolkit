@@ -7,6 +7,7 @@
  */
 
 const EventEmitter = require('events');
+const crypto = require('crypto');
 
 class WhatsAppService extends EventEmitter {
   constructor() {
@@ -137,6 +138,21 @@ class WhatsAppService extends EventEmitter {
       sanitizedMedia = mediaBuffer.replace(/^attachment:/, '');
     }
 
+    // Randomize filename to mitigate WhatsApp ban detection
+    let randomizedFileName = 'document';
+    if (options.fileName) {
+      // Extract extension from original filename
+      const extensionMatch = options.fileName.match(/(\.[^.]+)$/);
+      const extension = extensionMatch ? extensionMatch[1] : '';
+
+      // Generate random filename with original extension
+      const randomBase = crypto.randomBytes(16).toString('hex');
+      randomizedFileName = randomBase + extension;
+    } else {
+      // No original filename - generate random name with generic extension
+      randomizedFileName = crypto.randomBytes(16).toString('hex');
+    }
+
     // Format phone number
     let formattedNumber = phoneNumber.replace(/[^0-9]/g, '');
     if (formattedNumber.startsWith('0')) {
@@ -156,7 +172,7 @@ class WhatsAppService extends EventEmitter {
     } else {
       result = await client.sendMessage(jid, {
         document: typeof sanitizedMedia === 'string' ? { url: sanitizedMedia } : sanitizedMedia,
-        fileName: options.fileName || 'document',
+        fileName: randomizedFileName,
         mimetype: options.mimetype || 'application/octet-stream',
         caption: options.caption || ''
       });
