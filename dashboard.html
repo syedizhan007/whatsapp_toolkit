@@ -1848,7 +1848,20 @@
                         </h3>
                         <div style="display: grid; gap: 16px;">
                             <input type="text" id="campaignName" placeholder="Campaign Name (e.g., Summer Sale 2026)" style="padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
-                            <textarea id="campaignMessage" placeholder="Message Template (Use {name} for personalization)" rows="4" style="padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white;"></textarea>
+
+                            <!-- Template Rotation: Multiple Message Templates -->
+                            <div>
+                                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary);">
+                                    <i class="fas fa-sync-alt"></i> Message Templates (Rotation for ban mitigation)
+                                    <span style="font-size: 11px; opacity: 0.7;"> - Use {name}, {city}, {tag}, {phone} for personalization</span>
+                                </label>
+                                <div id="templateContainer" style="display: grid; gap: 12px;">
+                                    <!-- Template fields will be added here dynamically -->
+                                </div>
+                                <button type="button" onclick="addTemplateField()" style="margin-top: 8px; padding: 8px 16px; background: rgba(76, 175, 80, 0.2); border: 1px solid rgba(76, 175, 80, 0.5); border-radius: 6px; color: #4CAF50; cursor: pointer; font-size: 13px; width: 100%;">
+                                    <i class="fas fa-plus-circle"></i> Add Template Variant
+                                </button>
+                            </div>
 
                             <!-- Media Attachments -->
                             <div>
@@ -5764,14 +5777,86 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             return contacts;
         }
 
-        async function createCampaign() {
-            const name = document.getElementById('campaignName')?.value;
-            const message = document.getElementById('campaignMessage')?.value;
-            const csvFile = document.getElementById('campaignCSV')?.files[0];
-            if (!name || !message || !csvFile) {
-                alert('Please fill all fields');
+        // Template Rotation Management
+        let templateCounter = 0;
+
+        function addTemplateField() {
+            const container = document.getElementById('templateContainer');
+            const templateId = `template_${templateCounter++}`;
+
+            const templateDiv = document.createElement('div');
+            templateDiv.id = templateId;
+            templateDiv.style.cssText = 'display: flex; gap: 8px; align-items: start;';
+
+            templateDiv.innerHTML = `
+                <textarea
+                    class="campaign-template"
+                    placeholder="Template ${templateCounter}: Enter message variant (Use {name}, {city}, {tag}, {phone})"
+                    rows="3"
+                    style="flex: 1; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white; resize: vertical; font-family: inherit;"
+                ></textarea>
+                <button
+                    type="button"
+                    onclick="removeTemplateField('${templateId}')"
+                    style="padding: 8px 12px; background: rgba(244, 67, 54, 0.2); border: 1px solid rgba(244, 67, 54, 0.5); border-radius: 6px; color: #f44336; cursor: pointer; font-size: 13px; height: 42px;"
+                    title="Remove this template"
+                >
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+
+            container.appendChild(templateDiv);
+        }
+
+        function removeTemplateField(templateId) {
+            const container = document.getElementById('templateContainer');
+            const element = document.getElementById(templateId);
+
+            // Prevent removing the last template
+            if (container.children.length <= 1) {
+                alert('You must have at least one template variant');
                 return;
             }
+
+            if (element) {
+                element.remove();
+            }
+        }
+
+        function collectTemplates() {
+            const textareas = document.querySelectorAll('.campaign-template');
+            const templates = [];
+
+            textareas.forEach(textarea => {
+                const value = textarea.value.trim();
+                if (value) {
+                    templates.push(value);
+                }
+            });
+
+            return templates;
+        }
+
+        // Initialize with one template field on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            addTemplateField();
+        });
+
+        async function createCampaign() {
+            const name = document.getElementById('campaignName')?.value;
+            const templates = collectTemplates();
+            const csvFile = document.getElementById('campaignCSV')?.files[0];
+
+            // Validation
+            if (!name || templates.length === 0 || !csvFile) {
+                if (templates.length === 0) {
+                    alert('Please add at least one message template');
+                } else {
+                    alert('Please fill all required fields');
+                }
+                return;
+            }
+
             try {
                 const contacts = await parseContactFile(csvFile);
                 if (!contacts || contacts.length === 0) {
@@ -5783,7 +5868,15 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 try {
                     const formData = new FormData();
                     formData.append('name', name);
-                    formData.append('message', message);
+
+                    // Send templates as array (backend supports both string and array)
+                    if (templates.length === 1) {
+                        formData.append('message', templates[0]);
+                    } else {
+                        formData.append('message', JSON.stringify(templates));
+                        console.log(`🔄 Using template rotation with ${templates.length} variants`);
+                    }
+
                     formData.append('contacts', JSON.stringify(contacts));
 
                     // Append media files if any
@@ -5800,8 +5893,14 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                     if (result.success) {
                         alert(`Campaign created with ${contacts.length} contacts!`);
                         document.getElementById('campaignName').value = '';
-                        document.getElementById('campaignMessage').value = '';
                         document.getElementById('campaignCSV').value = '';
+
+                        // Reset template fields - clear all and add one empty template
+                        const templateContainer = document.getElementById('templateContainer');
+                        templateContainer.innerHTML = '';
+                        templateCounter = 0;
+                        addTemplateField();
+
                         clearCampaignFiles();
                         loadCampaigns();
                     } else {
