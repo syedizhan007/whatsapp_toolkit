@@ -907,24 +907,6 @@
             z-index: 1;
         }
 
-        /* DND Badge */
-        .dnd-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 12px;
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid var(--danger);
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .dnd-badge.active {
-            background: rgba(16, 185, 129, 0.2);
-            border-color: var(--success);
-        }
-
         /* Export Format Selection Modal */
         .export-modal-overlay {
             display: none;
@@ -1607,9 +1589,9 @@
                                     </div>
                                     <h3>Connection Error</h3>
                                     <p id="error-message"></p>
-                                    <button onclick="reconnectWhatsApp()" class="btn btn-primary">
+                                    <button id="retry-connection-btn" onclick="reconnectWhatsApp()" class="btn btn-primary">
                                         <i class="fas fa-redo"></i>
-                                        Retry Connection
+                                        Reconnect
                                     </button>
                                 </div>
                             </div>
@@ -1860,28 +1842,6 @@
                         </div>
                     </div>
 
-                    <!-- DND Settings -->
-                    <div class="glass-card tilt-card" style="margin-bottom: 24px;">
-                        <h3 style="margin-bottom: 16px;">
-                            <i class="fas fa-moon"></i> Do Not Disturb Settings
-                        </h3>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                            <div>
-                                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary);">Start Time (No messages after)</label>
-                                <input type="time" id="dndStartTime" value="23:00" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
-                            </div>
-                            <div>
-                                <label style="display: block; margin-bottom: 8px; color: var(--text-secondary);">End Time (Resume messages after)</label>
-                                <input type="time" id="dndEndTime" value="08:00" style="width: 100%; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
-                            </div>
-                            <div style="display: flex; align-items: flex-end;">
-                                <button class="btn btn-primary" onclick="saveDNDSettings()" style="width: 100%;">
-                                    <i class="fas fa-save"></i> Save DND Settings
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="glass-card tilt-card" style="margin-bottom: 24px;">
                         <h3 style="margin-bottom: 16px;">
                             <i class="fas fa-plus-circle"></i> Create New Campaign
@@ -2063,10 +2023,6 @@
                                     <span class="status-dot offline" id="agentStatusDot"></span>
                                     <span style="font-weight: 600;" id="agentStatusTextMain">OFFLINE</span>
                                 </div>
-                                <div style="color: var(--text-secondary); margin-bottom: 8px;" id="agentSubtext">Not responding</div>
-                                <div style="font-size: 14px; color: var(--primary); margin-bottom: 24px;">
-                                    <i class="fas fa-message"></i> <span id="conversationCount">0</span> conversations today
-                                </div>
                                 <div style="display: flex; gap: 12px; justify-content: center;">
                                     <button class="btn btn-success" id="startAgentBtn" onclick="startAgent()">
                                         <i class="fas fa-play"></i> Start Agent
@@ -2123,17 +2079,40 @@
                         <h3 style="margin-bottom: 16px;">
                             <i class="fas fa-book"></i> Business Instructions
                         </h3>
-                        <textarea id="businessInstructions" rows="8" placeholder="Enter your business instructions for the AI agent...
+                        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">
+                            Tell the AI agent about your business, products, pricing, and how to respond to customers.
+                        </p>
+                        <textarea id="businessInstructions" rows="8" placeholder="Example:
+You are a professional Pakistani salesman. Your name is Ali.
 
-Example:
-- Company Name: ABC Store
-- Business Type: E-commerce
-- Working Hours: 9 AM - 9 PM
-- Response Style: Professional and friendly
-- Key Products: Electronics, Gadgets
-- Special Offers: 10% discount on bulk orders" style="width: 100%; padding: 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white; font-family: 'Courier New', monospace;"></textarea>
-                        <button class="btn btn-primary" style="margin-top: 12px;">
-                            <i class="fas fa-save"></i> Save Instructions
+PRODUCTS YOU SELL:
+- Bedsheet = 1500 PKR
+- Shirt = 300 PKR
+- Pillow = 200 PKR
+
+RULES:
+- Always speak in Roman Urdu
+- Keep responses short (1-2 sentences)
+- Be friendly and helpful
+- Never negotiate on prices" style="width: 100%; padding: 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white; font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+
+                        <h3 style="margin: 24px 0 16px 0;">
+                            <i class="fas fa-credit-card"></i> Payment Details (Optional)
+                        </h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px;">
+                            Your payment account details (bank account, JazzCash, EasyPaisa, etc.). The AI will only share this if customers ask for payment info.
+                        </p>
+                        <textarea id="paymentDetails" rows="4" placeholder="Example:
+Bank: HBL
+Account: 12345678901234
+Account Title: Ali Store
+
+JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white; font-family: 'Courier New', monospace; resize: vertical;"></textarea>
+
+                        <div id="saveStatus" style="margin-top: 12px; padding: 12px; border-radius: 8px; display: none;"></div>
+
+                        <button class="btn btn-primary" style="margin-top: 12px;" onclick="saveBusinessConfig()">
+                            <i class="fas fa-save"></i> Save Configuration
                         </button>
                     </div>
 
@@ -2285,14 +2264,6 @@ Example:
                         </div>
                         <div class="large-counter">
                             <div class="large-counter-value">
-                                <div class="glow-counter" style="color: var(--success);" id="completedDealsCount">0</div>
-                                <div style="color: var(--text-secondary); font-size: 14px; margin-top: 8px;">
-                                    <i class="fas fa-check-circle"></i> Completed
-                                </div>
-                            </div>
-                        </div>
-                        <div class="large-counter">
-                            <div class="large-counter-value">
                                 <div class="glow-counter" style="color: var(--warning);" id="pendingDealsCount">0</div>
                                 <div style="color: var(--text-secondary); font-size: 14px; margin-top: 8px;">
                                     <i class="fas fa-hourglass-half"></i> Pending
@@ -2320,6 +2291,7 @@ Example:
                         <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
                             <select id="dealsStatusFilter" onchange="filterDeals()" style="padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 6px; color: white;">
                                 <option value="all">All Status</option>
+                                <option value="new">New Only</option>
                                 <option value="pending">Pending Only</option>
                                 <option value="completed">Completed Only</option>
                             </select>
@@ -2436,6 +2408,58 @@ Example:
 
             console.log('✓ Supabase client initialized with session persistence');
 
+            // ===== API HELPER FUNCTIONS WITH AUTO-USERID =====
+            // These functions automatically include userId in all API calls
+            async function apiGet(endpoint) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    console.error('❌ No authenticated user for API call');
+                    throw new Error('User not authenticated');
+                }
+                const separator = endpoint.includes('?') ? '&' : '?';
+                return fetch(`${endpoint}${separator}userId=${user.id}`);
+            }
+
+            async function apiPost(endpoint, data = {}) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    console.error('❌ No authenticated user for API call');
+                    throw new Error('User not authenticated');
+                }
+                return fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...data, userId: user.id })
+                });
+            }
+
+            async function apiPut(endpoint, data = {}) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    console.error('❌ No authenticated user for API call');
+                    throw new Error('User not authenticated');
+                }
+                return fetch(endpoint, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...data, userId: user.id })
+                });
+            }
+
+            async function apiDelete(endpoint) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    console.error('❌ No authenticated user for API call');
+                    throw new Error('User not authenticated');
+                }
+                const separator = endpoint.includes('?') ? '&' : '?';
+                return fetch(`${endpoint}${separator}userId=${user.id}`, {
+                    method: 'DELETE'
+                });
+            }
+
+            console.log('✓ API helper functions loaded with automatic userId injection');
+
             // ===== WHATSAPP CONNECTION MANAGEMENT =====
             let socket = null;
             let whatsappConnected = false;
@@ -2444,22 +2468,40 @@ Example:
             async function initializeSocketIO() {
                 console.log('🔌 Initializing Socket.IO connection...');
 
-                // Get authenticated user ID from Supabase
-                const { data: { user }, error } = await supabase.auth.getUser();
-                if (!user || error) {
-                    console.error('❌ Cannot initialize Socket.IO without authenticated user:', error);
-                    return;
+                // Get authenticated user ID from Supabase OR use fallback
+                let userId;
+                try {
+                    const { data: { user }, error } = await supabase.auth.getUser();
+                    if (user && !error) {
+                        userId = user.id;
+                        console.log('✓ Using Supabase userId:', userId);
+                    } else {
+                        // FALLBACK: Generate temporary userId if Supabase auth not ready
+                        userId = 'dashboard-user-' + Date.now();
+                        console.warn('⚠️ Supabase auth not ready, using fallback userId:', userId);
+                    }
+                } catch (err) {
+                    // FALLBACK: If any exception, use temporary userId
+                    userId = 'dashboard-user-' + Date.now();
+                    console.warn('⚠️ Exception getting Supabase user, using fallback userId:', userId, err);
                 }
 
-                console.log('✓ Authenticating Socket.IO with userId:', user.id);
+                console.log('✓ Initializing Socket.IO with userId:', userId);
 
                 socket = io('http://localhost:3000', {
-                    auth: { userId: user.id },  // Pass userId for server-side isolation
+                    auth: { userId: userId },  // Pass userId for server-side isolation
                     transports: ['websocket', 'polling']
                 });
 
                 socket.on('connect', () => {
-                    console.log('✓ Socket.IO connected');
+                    console.log('✓ Socket.IO connected - WhatsApp client should initialize now');
+                    // Show loading state explicitly
+                    const loadingState = document.getElementById('loading-state');
+                    if (loadingState) {
+                        hideAllConnectionStates();
+                        loadingState.style.display = 'flex';
+                        console.log('✓ Loading state displayed');
+                    }
                 });
 
                 socket.on('disconnect', () => {
@@ -2474,8 +2516,20 @@ Example:
 
                 // QR Code Event
                 socket.on('whatsapp:qr', (data) => {
-                    console.log('📱 QR Code received');
-                    showQRCode(data.qr);
+                    console.log('📱 QR EVENT RECEIVED FROM BACKEND');
+                    console.log('   Event timestamp:', new Date().toISOString());
+                    console.log('   Data object:', data);
+                    console.log('   Has qr property:', 'qr' in data);
+                    console.log('   QR value type:', typeof data.qr);
+                    console.log('   QR length:', data.qr ? data.qr.length : 0);
+
+                    if (data && data.qr) {
+                        console.log('✓ Valid QR data received, calling showQRCode()');
+                        showQRCode(data.qr);
+                    } else {
+                        console.error('❌ QR event received but no valid QR data');
+                        console.error('   Full data:', JSON.stringify(data));
+                    }
                 });
 
                 // Ready Event
@@ -2517,10 +2571,16 @@ Example:
                     showLoadingState('Generating new QR code...');
                 });
 
+                // Initializing Event (shows connection progress)
+                socket.on('whatsapp:initializing', (data) => {
+                    console.log(`🔄 Initializing: ${data.message}`);
+                    showLoadingState(data.message);
+                });
+
                 // Error Event
                 socket.on('whatsapp:error', (data) => {
                     console.error('❌ WhatsApp error:', data);
-                    showErrorState(data.error);
+                    showErrorState(data.error, data.canRetry);
                 });
 
                 // ===== REAL-TIME MESSAGE EVENTS =====
@@ -2592,7 +2652,7 @@ Example:
                     setTimeout(async () => {
                         try {
                             // Fetch campaign details to get the name
-                            const response = await fetch(`/api/bulk/campaigns/${data.campaignId}`);
+                            const response = await apiGet(`/api/bulk/campaigns/${data.campaignId}`);
                             const result = await response.json();
 
                             if (result.success && result.campaign) {
@@ -2723,18 +2783,40 @@ Example:
 
             // Show QR Code
             function showQRCode(qrDataUrl) {
+                console.log('🎯 showQRCode() function called');
+                console.log('   QR Data URL provided:', qrDataUrl ? 'YES' : 'NO');
+
                 hideAllConnectionStates();
+                console.log('   ✓ All connection states hidden');
 
                 const qrContainer = document.getElementById('qr-code-container');
                 const qrImage = document.getElementById('qr-code-image');
                 const statusBadge = document.getElementById('connection-status-badge');
 
-                if (qrContainer) qrContainer.style.display = 'flex';
-                if (qrImage) qrImage.src = qrDataUrl;
+                console.log('   Elements found:');
+                console.log('   - qr-code-container:', qrContainer ? 'FOUND' : 'NOT FOUND');
+                console.log('   - qr-code-image:', qrImage ? 'FOUND' : 'NOT FOUND');
+                console.log('   - connection-status-badge:', statusBadge ? 'FOUND' : 'NOT FOUND');
+
+                if (qrContainer) {
+                    qrContainer.style.display = 'flex';
+                    qrContainer.style.visibility = 'visible';
+                    qrContainer.style.opacity = '1';
+                    console.log('   ✓ QR container display set to flex');
+                }
+
+                if (qrImage) {
+                    qrImage.src = qrDataUrl;
+                    console.log('   ✓ QR image src set');
+                }
+
                 if (statusBadge) {
                     statusBadge.className = 'status-badge connecting';
                     statusBadge.innerHTML = '<i class="fas fa-circle"></i><span>Waiting for Scan</span>';
+                    console.log('   ✓ Status badge updated');
                 }
+
+                console.log('✅ showQRCode() completed successfully');
             }
 
             // Show Loading State
@@ -2835,7 +2917,7 @@ Example:
             }
 
             // Show Error State
-            function showErrorState(errorMessage) {
+            function showErrorState(errorMessage, canRetry = true) {
                 hideAllConnectionStates();
 
                 const errorState = document.getElementById('error-state');
@@ -2847,6 +2929,12 @@ Example:
                 if (statusBadge) {
                     statusBadge.className = 'status-badge disconnected';
                     statusBadge.innerHTML = '<i class="fas fa-circle"></i><span>Error</span>';
+                }
+
+                // Show/hide retry button based on canRetry flag
+                const retryBtn = document.getElementById('retry-connection-btn');
+                if (retryBtn) {
+                    retryBtn.style.display = canRetry ? 'inline-block' : 'none';
                 }
             }
 
@@ -2875,12 +2963,7 @@ Example:
                 showLoadingState('Disconnecting...');
 
                 try {
-                    const response = await fetch('/api/whatsapp/logout', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
+                    const response = await apiPost('/api/whatsapp/logout');
 
                     const data = await response.json();
 
@@ -3345,11 +3428,8 @@ Example:
                         document.getElementById('exportValidationButtons').style.display = 'block';
 
                         // Sync validation count to backend
-                        fetch('/api/stats/validation', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ count: validationStats.total })
-                        }).then(() => {
+                        apiPost('/api/stats/validation', { count: validationStats.total })
+                        .then(() => {
                             // Refresh dashboard stats immediately
                             fetchDashboardStats();
                         }).catch(err => console.error('Failed to sync validation count:', err));
@@ -3662,10 +3742,7 @@ Example:
             if (campaign) {
                 try {
                     console.log(`Pausing campaign ${id}...`);
-                    const response = await fetch(`/api/bulk/campaigns/${id}/pause`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+                    const response = await apiPost(`/api/bulk/campaigns/${id}/pause`, {});
                     const result = await response.json();
                     if (result.success) {
                         campaign.status = 'paused';
@@ -3686,10 +3763,7 @@ Example:
             if (campaign) {
                 try {
                     console.log(`Resuming campaign ${id}...`);
-                    const response = await fetch(`/api/bulk/campaigns/${id}/resume`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+                    const response = await apiPost(`/api/bulk/campaigns/${id}/resume`, {});
                     const result = await response.json();
                     if (result.success) {
                         campaign.status = 'active';
@@ -3710,10 +3784,7 @@ Example:
             if (campaign) {
                 try {
                     console.log(`Starting campaign ${id}...`);
-                    const response = await fetch(`/api/bulk/campaigns/${id}/start`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+                    const response = await apiPost(`/api/bulk/campaigns/${id}/start`, {});
                     const result = await response.json();
 
                     if (result.success) {
@@ -3735,10 +3806,7 @@ Example:
             if (campaign && confirm(`Are you sure you want to stop "${campaign.name}"?`)) {
                 try {
                     console.log(`Stopping campaign ${id}...`);
-                    const response = await fetch(`/api/bulk/campaigns/${id}/stop`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+                    const response = await apiPost(`/api/bulk/campaigns/${id}/stop`, {});
                     const result = await response.json();
                     if (result.success) {
                         campaign.status = 'stopped';
@@ -3758,7 +3826,7 @@ Example:
             const campaign = campaigns.find(c => c.id === id);
             if (campaign && confirm(`Are you sure you want to delete "${campaign.name}"? This cannot be undone.`)) {
                 try {
-                    const response = await fetch(`/api/bulk/campaigns/${id}`, { method: 'DELETE' });
+                    const response = await apiDelete(`/api/bulk/campaigns/${id}`);
                     const result = await response.json();
                     if (result.success) {
                         campaigns = campaigns.filter(c => c.id !== id);
@@ -4027,13 +4095,13 @@ Example:
                 return;
             }
 
-            // Convert to CSV
+            // Convert to CSV - FIXED: Use database column names
             const headers = ['Customer', 'Phone', 'Message', 'Date', 'Status'];
             const rows = currentDealsData.map(deal => [
-                deal.contact || 'Unknown',
-                deal.contact || '',
-                (deal.message || '').replace(/,/g, ';'), // Escape commas
-                new Date(deal.timestamp).toLocaleDateString(),
+                deal.customer_name || deal.customerName || 'Unknown',
+                deal.customer_phone || deal.contact || '',
+                (deal.message_text || deal.message || '').replace(/,/g, ';'), // Escape commas
+                new Date(deal.created_at || deal.timestamp).toLocaleDateString(),
                 deal.status || 'new'
             ]);
 
@@ -4063,7 +4131,7 @@ Example:
 
         async function fetchStats() {
             try {
-                const response = await fetch('/api/stats');
+                const response = await apiGet('/api/stats');
                 const stats = await response.json();
                 updateDashboardStats(stats);
             } catch (error) {
@@ -4074,48 +4142,6 @@ Example:
         // View Deal Details
         function viewDealDetails(phone) {
             alert(`Viewing details for ${phone}\n\nThis would open a detailed view of the deal.`);
-        }
-
-        // ===== DND TOGGLE FUNCTION =====
-        let dndEnabled = false; // Default: DND OFF
-
-        function updateDNDDisplay() {
-            const badge = document.getElementById('dndBadge');
-            const statusDot = document.getElementById('dndStatusDot');
-            const statusText = document.getElementById('dndStatusText');
-            const timeInfo = document.getElementById('dndTimeInfo');
-            const toggleIcon = document.getElementById('dndToggleIcon');
-
-            if (!badge) return; // Elements not loaded yet
-
-            if (dndEnabled) {
-                // DND ON
-                badge.className = 'dnd-badge active';
-                statusDot.className = 'status-dot online';
-                statusText.textContent = 'DND: ON';
-                timeInfo.textContent = 'No messages 11PM-8AM';
-                toggleIcon.className = 'fas fa-toggle-on';
-            } else {
-                // DND OFF
-                badge.className = 'dnd-badge';
-                statusDot.className = 'status-dot offline';
-                statusText.textContent = 'DND: OFF';
-                timeInfo.textContent = 'Sending anytime';
-                toggleIcon.className = 'fas fa-toggle-off';
-            }
-        }
-
-        window.toggleDND = function() {
-            dndEnabled = !dndEnabled;
-            updateDNDDisplay();
-
-            if (dndEnabled) {
-                showNotification('DND Mode: ON - Messages will not be sent between 11PM-8AM', 'success');
-            } else {
-                showNotification('DND Mode: OFF - Messages will be sent anytime', 'info');
-            }
-
-            console.log(`DND Mode: ${dndEnabled ? 'ON' : 'OFF'}`);
         }
 
         // Show notification
@@ -4189,7 +4215,7 @@ Example:
         // Load products from server
         async function loadProducts() {
             try {
-                const response = await fetch('/api/products');
+                const response = await apiGet('/api/products');
                 if (!response.ok) throw new Error('Failed to load products');
 
                 const data = await response.json();
@@ -4259,13 +4285,9 @@ Example:
             }
 
             try {
-                const response = await fetch('/api/products', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        item_name: name,
-                        price_pkr: parseFloat(price)
-                    })
+                const response = await apiPost('/api/products', {
+                    item_name: name,
+                    price_pkr: parseFloat(price)
                 });
 
                 if (!response.ok) throw new Error('Failed to add product');
@@ -4303,13 +4325,9 @@ Example:
             }
 
             try {
-                const response = await fetch(`/api/products/${id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        item_name: newName.trim(),
-                        price_pkr: parseFloat(newPrice)
-                    })
+                const response = await apiPut(`/api/products/${id}`, {
+                    item_name: newName.trim(),
+                    price_pkr: parseFloat(newPrice)
                 });
 
                 if (!response.ok) throw new Error('Failed to update product');
@@ -4333,9 +4351,7 @@ Example:
             }
 
             try {
-                const response = await fetch(`/api/products/${id}`, {
-                    method: 'DELETE'
-                });
+                const response = await apiDelete(`/api/products/${id}`);
 
                 if (!response.ok) throw new Error('Failed to delete product');
 
@@ -4467,12 +4483,19 @@ Example:
                 document.getElementById('progressBar').style.width = '10%';
                 document.getElementById('progressText').textContent = `Uploading ${files.length} file(s)...`;
 
+                // Get authenticated user for userId
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    throw new Error('User not authenticated. Please log in again.');
+                }
+
                 // Create FormData
                 const formData = new FormData();
                 Array.from(files).forEach(file => {
                     formData.append('files', file);
                 });
                 formData.append('tag', tag);
+                formData.append('userId', user.id); // Add userId for multi-tenant isolation
 
                 document.getElementById('progressBar').style.width = '30%';
 
@@ -4535,7 +4558,7 @@ Example:
         // Load media from server
         async function loadMedia() {
             try {
-                const response = await fetch('/api/media');
+                const response = await apiGet('/api/media');
                 if (!response.ok) throw new Error('Failed to load media');
 
                 const data = await response.json();
@@ -4627,9 +4650,7 @@ Example:
             }
 
             try {
-                const response = await fetch(`/api/media/${id}`, {
-                    method: 'DELETE'
-                });
+                const response = await apiDelete(`/api/media/${id}`);
 
                 if (!response.ok) throw new Error('Failed to delete media');
 
@@ -4653,10 +4674,20 @@ Example:
 
             let content = '';
             if (type === 'incoming') {
-                const phone = data.from.replace('@c.us', '');
-                content = `<span class="terminal-time">[${time}]</span><span class="terminal-incoming">← ${phone}: ${data.body}</span>`;
+                // PRIORITY: Use fromName if available, otherwise clean phone
+                const displayName = data.fromName && data.fromName !== 'Customer'
+                    ? data.fromName
+                    : cleanPhoneNumber(data.from);
+
+                // Show both name and phone if we have both
+                const displayText = data.fromName && data.fromName !== 'Customer' && data.from
+                    ? `${data.fromName} (${cleanPhoneNumber(data.from)})`
+                    : displayName;
+
+                content = `<span class="terminal-time">[${time}]</span><span class="terminal-incoming">← ${displayText}: ${data.body}</span>`;
             } else if (type === 'outgoing') {
-                const phone = data.to ? data.to.replace('@c.us', '') : 'You';
+                // Clean phone number for outgoing messages
+                const phone = data.to ? cleanPhoneNumber(data.to) : 'You';
                 content = `<span class="terminal-time">[${time}]</span><span class="terminal-outgoing">→ You: ${data.body}</span>`;
             }
 
@@ -4673,7 +4704,7 @@ Example:
 
         async function loadMessageHistory() {
             try {
-                const response = await fetch('/api/messages');
+                const response = await apiGet('/api/messages');
                 const data = await response.json();
 
                 const terminal = document.getElementById('liveMessages');
@@ -4716,7 +4747,7 @@ Example:
 
         async function fetchStats() {
             try {
-                const response = await fetch('/api/stats');
+                const response = await apiGet('/api/stats');
                 const stats = await response.json();
                 updateDashboardStats(stats);
             } catch (error) {
@@ -4733,8 +4764,10 @@ Example:
             const noDeals = dealsContainer.querySelector('[data-no-deals]');
             if (noDeals) noDeals.remove();
 
-            const phone = deal.contact.replace('@c.us', '');
-            const time = new Date(deal.timestamp).toLocaleTimeString('en-US', { hour12: false });
+            // FIXED: Use database column names from Socket.io emission
+            const phone = deal.customer_phone || deal.contact || 'N/A';
+            const customerName = deal.customer_name || deal.customerName || 'Customer';
+            const time = new Date(deal.created_at || deal.timestamp).toLocaleTimeString('en-US', { hour12: false });
 
             const dealCard = document.createElement('div');
             dealCard.className = 'glass-card';
@@ -4742,8 +4775,13 @@ Example:
             dealCard.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                     <div>
-                        <div style="font-weight: 600; color: var(--primary);">${phone}</div>
-                        <div style="font-size: 12px; color: var(--text-secondary);">${time}</div>
+                        <div style="font-weight: 600; color: var(--primary);">${customerName}</div>
+                        <div style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
+                            <i class="fas fa-phone" style="font-size: 11px; margin-right: 4px;"></i>${phone}
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                            <i class="far fa-clock" style="font-size: 11px; margin-right: 4px;"></i>${time}
+                        </div>
                     </div>
                     <span class="status-badge" style="background: rgba(16, 185, 129, 0.2); color: var(--success);">
                         <i class="fas fa-circle"></i> New
@@ -4770,10 +4808,28 @@ Example:
         let currentDealsStatus = 'all';
         let currentDealsData = [];
 
+        // ===== HELPER FUNCTIONS =====
+
+        // Clean phone number - remove WhatsApp suffixes but preserve LID formatting
+        function cleanPhoneNumber(phone) {
+            if (!phone) return 'N/A';
+
+            // Convert to string and trim
+            phone = String(phone).trim();
+
+            // If it's already formatted as LID-XXXXX, keep it as-is (from backend)
+            if (phone.startsWith('LID-')) {
+                return phone;
+            }
+
+            // Otherwise, strip WhatsApp suffixes (for legacy data)
+            return phone.replace(/@lid|@c\.us|@s\.whatsapp\.net|@g\.us/g, '');
+        }
+
         async function loadDeals(page = 1) {
             try {
                 currentDealsPage = page;
-                const response = await fetch(`/api/deals?status=${currentDealsStatus}&page=${page}&limit=10`);
+                const response = await apiGet(`/api/deals/tracked?status=${currentDealsStatus}&page=${page}&limit=10`);
                 const data = await response.json();
 
                 if (data.success) {
@@ -4796,16 +4852,36 @@ Example:
                         tbody.innerHTML = data.deals.map(deal => {
                             const statusClass = deal.status === 'completed' ? 'badge-success' :
                                               deal.status === 'pending' ? 'badge-warning' : 'badge-info';
+
+                            // FIXED: Use database column names (customer_name, customer_phone, message_text)
+                            const customerName = deal.customer_name || deal.customerName || deal.name || 'Customer';
+
+                            // Get phone number - prioritize database column name
+                            let phoneNumber = deal.customer_phone || deal.contact || '';
+                            const cleanPhone = cleanPhoneNumber(phoneNumber);
+
+                            // Check if phone looks like LID digits (more than 15 digits or starts with LID-)
+                            const isLidDigits = cleanPhone.length > 15 || cleanPhone.startsWith('LID-');
+                            const phoneDisplay = isLidDigits
+                                ? `<span style="color: #ff6b6b;" title="Unresolved LID - may need manual correction">${cleanPhone}</span>
+                                   <button class="btn btn-sm" style="padding:2px 6px;font-size:10px;margin-left:4px;" onclick="editDealPhone(${deal.id}, '${cleanPhone}')" title="Edit phone number">
+                                       <i class="fas fa-edit"></i>
+                                   </button>`
+                                : cleanPhone;
+
                             return `
                                 <tr>
-                                    <td>${deal.name || 'New Lead'}</td>
-                                    <td>${deal.contact || 'N/A'}</td>
-                                    <td>${deal.message || ''}</td>
-                                    <td>${new Date(deal.timestamp).toLocaleDateString()}</td>
+                                    <td>${customerName}</td>
+                                    <td>${phoneDisplay}</td>
+                                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${deal.message_text || deal.message || ''}">${deal.message_text || deal.message || ''}</td>
+                                    <td>${new Date(deal.created_at || deal.timestamp).toLocaleDateString()}</td>
                                     <td><span class="badge ${statusClass}">${deal.status || 'new'}</span></td>
                                     <td>
-                                        <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;" onclick="viewDealDetails('${deal.contact}')">
+                                        <button class="btn btn-primary" style="padding:4px 8px;font-size:11px;margin-right:4px;" onclick="viewDealDetails('${cleanPhone}')" title="View Details">
                                             <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-danger" style="padding:4px 8px;font-size:11px;" onclick="deleteDeal(${deal.id})" title="Delete Deal">
+                                            <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
                                 </tr>
@@ -4823,6 +4899,67 @@ Example:
                 }
             } catch (error) {
                 console.error('Failed to load deals:', error);
+            }
+        }
+
+        // Edit deal phone number function
+        function editDealPhone(dealId, currentPhone) {
+            const newPhone = prompt(`Edit phone number for deal #${dealId}:\n\nCurrent: ${currentPhone}\n\nEnter new phone number (digits only):`, currentPhone.replace(/[^0-9]/g, ''));
+
+            if (newPhone && newPhone !== currentPhone) {
+                // Clean the input (remove non-digits)
+                const cleanedPhone = newPhone.replace(/[^0-9]/g, '');
+
+                if (cleanedPhone.length >= 7) {
+                    // Update via API
+                    fetch(`/api/deals/tracked/${dealId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            userId: currentUserId,
+                            customer_phone: cleanedPhone
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('Phone number updated successfully', 'success');
+                            loadDeals(currentDealsPage); // Reload deals table
+                        } else {
+                            showNotification('Failed to update phone number: ' + data.error, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error updating phone:', error);
+                        showNotification('Error updating phone number', 'error');
+                    });
+                } else {
+                    showNotification('Invalid phone number (minimum 7 digits)', 'error');
+                }
+            }
+        }
+
+        // Delete deal function with confirmation
+        async function deleteDeal(dealId) {
+            if (!confirm('Are you sure you want to delete this deal? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await apiDelete(`/api/deals/tracked/${dealId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Deal deleted successfully', 'success');
+                    loadDeals(currentDealsPage); // Reload current page
+                } else {
+                    showNotification('Failed to delete deal: ' + data.error, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting deal:', error);
+                showNotification('Error deleting deal', 'error');
             }
         }
 
@@ -4906,7 +5043,96 @@ Example:
         async function fetchAIAgentStatus() {
             try {
                 console.log('📡 Fetching AI Agent status from server...');
-                const response = await fetch('/api/ai-agent/status');
+                const response = await apiGet('/api/ai-agent/status');
+                const data = await response.json();
+                console.log('✓ AI Agent status received:', data.enabled);
+                updateAIAgentStatus(data.enabled);
+            } catch (error) {
+                console.error('❌ Failed to fetch AI agent status:', error);
+            }
+        }
+
+        // ===== BUSINESS CONFIG FUNCTIONS =====
+        async function loadBusinessConfig() {
+            try {
+                console.log('📡 Loading business configuration...');
+                // apiGet already handles userId automatically
+                const response = await apiGet('/api/business-config');
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('businessInstructions').value = data.prompt_text || '';
+                    document.getElementById('paymentDetails').value = data.payment_details || '';
+                    console.log('✓ Business configuration loaded');
+                } else {
+                    console.warn('⚠️ No business configuration found');
+                }
+            } catch (error) {
+                console.error('❌ Failed to load business configuration:', error);
+                // Don't show error to user on initial load - just log it
+            }
+        }
+
+        async function saveBusinessConfig() {
+            const businessInstructions = document.getElementById('businessInstructions').value.trim();
+            const paymentDetails = document.getElementById('paymentDetails').value.trim();
+            const saveStatus = document.getElementById('saveStatus');
+
+            if (!businessInstructions) {
+                saveStatus.style.display = 'block';
+                saveStatus.style.background = 'rgba(239, 68, 68, 0.2)';
+                saveStatus.style.border = '1px solid #ef4444';
+                saveStatus.style.color = '#ef4444';
+                saveStatus.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Business instructions cannot be empty!';
+                return;
+            }
+
+            try {
+                console.log('💾 Saving business configuration...');
+
+                // Show loading state
+                saveStatus.style.display = 'block';
+                saveStatus.style.background = 'rgba(59, 130, 246, 0.2)';
+                saveStatus.style.border = '1px solid #3b82f6';
+                saveStatus.style.color = '#3b82f6';
+                saveStatus.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+                // apiPost already handles userId automatically
+                const response = await apiPost('/api/business-config', {
+                    prompt_text: businessInstructions,
+                    payment_details: paymentDetails
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    console.log('✅ Business configuration saved successfully');
+                    saveStatus.style.background = 'rgba(16, 185, 129, 0.2)';
+                    saveStatus.style.border = '1px solid #10b981';
+                    saveStatus.style.color = '#10b981';
+                    saveStatus.innerHTML = '<i class="fas fa-check-circle"></i> Configuration saved successfully! AI agent will use these instructions.';
+
+                    // Hide success message after 3 seconds
+                    setTimeout(() => {
+                        saveStatus.style.display = 'none';
+                    }, 3000);
+                } else {
+                    throw new Error(data.error || 'Failed to save');
+                }
+            } catch (error) {
+                console.error('❌ Failed to save business configuration:', error);
+                saveStatus.style.display = 'block';
+                saveStatus.style.background = 'rgba(239, 68, 68, 0.2)';
+                saveStatus.style.border = '1px solid #ef4444';
+                saveStatus.style.color = '#ef4444';
+                saveStatus.innerHTML = `<i class="fas fa-exclamation-circle"></i> Failed to save: ${error.message}`;
+            }
+        }
+
+        async function fetchAIAgentStatus() {
+            try {
+                console.log('📡 Fetching AI Agent status from server...');
+                const response = await apiGet('/api/ai-agent/status');
                 const data = await response.json();
                 console.log('✓ AI Agent status received:', data.enabled);
                 updateAIAgentStatus(data.enabled);
@@ -4947,11 +5173,7 @@ Example:
             if (stopBtn) stopBtn.style.display = 'inline-flex';
 
             try {
-                const response = await fetch('/api/ai-agent/toggle', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enabled: true })
-                });
+                const response = await apiPost('/api/ai-agent/toggle', { enabled: true });
 
                 const data = await response.json();
                 if (data.success) {
@@ -4960,7 +5182,7 @@ Example:
                         try {
                             console.log("🤖 Agent heartbeat check...");
                             // Fetch agent status to ensure it's still running
-                            const statusResponse = await fetch('/api/ai-agent/status');
+                            const statusResponse = await apiGet('/api/ai-agent/status');
                             const statusData = await statusResponse.json();
                             if (!statusData.enabled && isAgentRunning) {
                                 // Backend stopped but frontend thinks it's running
@@ -5042,11 +5264,7 @@ Example:
             if (stopBtn) stopBtn.style.display = 'none';
 
             try {
-                const response = await fetch('/api/ai-agent/toggle', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enabled: false })
-                });
+                const response = await apiPost('/api/ai-agent/toggle', { enabled: false });
 
                 const data = await response.json();
                 if (data.success) {
@@ -5202,14 +5420,12 @@ Example:
             // Load extraction memory from localStorage
             loadExtractionMemory();
 
-            // Initialize DND display to match default state
-            updateDNDDisplay();
-
             // ===== LOAD REAL DATA =====
             fetchDashboardStats(); // Fetch comprehensive dashboard stats
             loadDeals();
             loadMessageHistory();
             fetchAIAgentStatus();
+            loadBusinessConfig(); // Load business instructions and payment details
             loadProducts(); // Load products from Supabase
             loadMedia(); // Load media gallery from Supabase
             loadCampaigns(); // Load campaigns from backend
@@ -5299,7 +5515,10 @@ Example:
         window.prevDealsPage = prevDealsPage;
         window.nextDealsPage = nextDealsPage;
         window.viewDealDetails = viewDealDetails;
-        window.toggleDND = toggleDND;
+        window.deleteDeal = deleteDeal;
+        window.editDealPhone = editDealPhone;
+        window.saveBusinessConfig = saveBusinessConfig;
+        window.loadBusinessConfig = loadBusinessConfig;
         window.clearGroupMemory = clearGroupMemory;
         window.exportToCSV = exportToCSV;
         window.exportToExcel = exportToExcel;
@@ -5311,8 +5530,15 @@ Example:
 
         async function loadWhatsAppStatus() {
             try {
-                const response = await fetch(`${BULK_API_BASE}/whatsapp/status`);
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    console.error('❌ No user found for loadWhatsAppStatus');
+                    return;
+                }
+                console.log('✓ Loading WhatsApp status for userId:', user.id);
+                const response = await fetch(`${BULK_API_BASE}/whatsapp/status?userId=${user.id}`);
                 const data = await response.json();
+                console.log('WhatsApp status response:', data);
                 const statusText = document.getElementById('whatsappStatusText');
                 if (statusText) {
                     if (data.ready) {
@@ -5323,24 +5549,6 @@ Example:
                 }
             } catch (error) {
                 console.error('Error loading WhatsApp status:', error);
-            }
-        }
-
-        async function saveDNDSettings() {
-            const startTime = document.getElementById('dndStartTime')?.value;
-            const endTime = document.getElementById('dndEndTime')?.value;
-            if (!startTime || !endTime) return;
-            try {
-                const response = await fetch(`${BULK_API_BASE}/settings/dnd`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ startTime, endTime })
-                });
-                if (response.ok) {
-                    alert('DND settings saved!');
-                }
-            } catch (error) {
-                console.error('Error saving DND settings:', error);
             }
         }
 
@@ -5593,7 +5801,7 @@ Example:
 
         async function loadCampaigns() {
             try {
-                const response = await fetch(`${BULK_API_BASE}/campaigns`);
+                const response = await apiGet(`${BULK_API_BASE}/campaigns`);
                 const data = await response.json();
                 const tbody = document.getElementById('campaignsTableBody');
                 if (!tbody) return;
@@ -5631,7 +5839,7 @@ Example:
 
         async function startCampaign(id) {
             try {
-                const response = await fetch(`${BULK_API_BASE}/campaigns/${id}/start`, { method: 'POST' });
+                const response = await apiPost(`${BULK_API_BASE}/campaigns/${id}/start`, {});
                 const result = await response.json();
                 if (result.success) {
                     alert('Campaign started!');
@@ -5645,7 +5853,7 @@ Example:
         async function deleteCampaign(id) {
             if (!confirm('Delete this campaign?')) return;
             try {
-                const response = await fetch(`${BULK_API_BASE}/campaigns/${id}`, { method: 'DELETE' });
+                const response = await apiDelete(`${BULK_API_BASE}/campaigns/${id}`);
                 const result = await response.json();
                 if (result.success) {
                     alert('Campaign deleted!');
@@ -5658,7 +5866,7 @@ Example:
 
         async function loadBlacklist() {
             try {
-                const response = await fetch(`${BULK_API_BASE}/blacklist`);
+                const response = await apiGet(`${BULK_API_BASE}/blacklist`);
                 const data = await response.json();
                 const container = document.getElementById('blacklistContainer');
                 if (!container) return;
@@ -5681,11 +5889,7 @@ Example:
             const phone = document.getElementById('blacklistPhone')?.value.trim();
             if (!phone) return;
             try {
-                const response = await fetch(`${BULK_API_BASE}/blacklist`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone, reason: 'Manually added' })
-                });
+                const response = await apiPost(`${BULK_API_BASE}/blacklist`, { phone, reason: 'Manually added' });
                 if (response.ok) {
                     document.getElementById('blacklistPhone').value = '';
                     loadBlacklist();
@@ -5697,7 +5901,7 @@ Example:
 
         async function removeFromBlacklist(phone) {
             try {
-                const response = await fetch(`${BULK_API_BASE}/blacklist/${encodeURIComponent(phone)}`, { method: 'DELETE' });
+                const response = await apiDelete(`${BULK_API_BASE}/blacklist/${encodeURIComponent(phone)}`);
                 if (response.ok) loadBlacklist();
             } catch (error) {
                 console.error('Error removing from blacklist:', error);
@@ -5711,7 +5915,7 @@ Example:
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
 
             try {
-                const response = await fetch(`${BULK_API_BASE}/groups`);
+                const response = await apiGet(`${BULK_API_BASE}/groups`);
                 const data = await response.json();
 
                 if (data.success && data.groups && data.groups.length > 0) {
@@ -5782,32 +5986,61 @@ Example:
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Extracting...';
 
             try {
-                const response = await fetch(`${BULK_API_BASE}/groups/${encodeURIComponent(groupId)}/members`);
-                const data = await response.json();
+                const response = await apiGet(`${BULK_API_BASE}/groups/${encodeURIComponent(groupId)}/members`);
 
-                if (data.success && data.members) {
-                    // Filter out admins if requested
-                    let filteredMembers = data.members;
-                    if (excludeAdmins) {
-                        filteredMembers = data.members.filter(m => !m.isAdmin);
+                // Check if response is OK
+                if (!response.ok) {
+                    // Try to parse error as JSON if possible
+                    try {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || `Server error: ${response.status}`);
+                    } catch (jsonError) {
+                        throw new Error(`Server error: ${response.status} ${response.statusText}`);
                     }
-
-                    const adminCount = data.members.filter(m => m.isAdmin).length;
-                    const excludedText = excludeAdmins ? `\n(${adminCount} admins excluded)` : '';
-
-                    alert(`✅ Successfully extracted ${filteredMembers.length} contacts from "${data.groupName}"!${excludedText}\n\nYou can now use these contacts in your campaigns.`);
-                    console.log('Extracted members:', filteredMembers);
-
-                    // Optionally download as CSV
-                    if (confirm('Would you like to download the contacts as CSV?')) {
-                        downloadContactsCSV(filteredMembers, data.groupName, excludeAdmins);
-                    }
-                } else {
-                    alert(`❌ Failed to extract contacts:\n${data.message || 'Unknown error'}\n\nPlease make sure:\n1. WhatsApp is connected\n2. You are a member of this group\n3. The Group ID is correct`);
                 }
+
+                // CRITICAL: Check Content-Type to determine response type
+                const contentType = response.headers.get('Content-Type');
+
+                if (contentType && contentType.includes('application/json')) {
+                    // Handle JSON response (empty results - no real members found)
+                    const data = await response.json();
+                    console.log('ℹ️ Group has no real members:', data);
+                    alert(`ℹ️ ${data.message || 'No members found in this group.'}\n\nThis group may:\n- Only have linked devices (@lid)\n- Be a business/community group with hidden numbers\n- Have privacy restrictions\n\nTry a different group or one where you can see members\' phone numbers in WhatsApp.`);
+                    return; // Don't download anything
+                }
+
+                // Handle Excel file download (response is a binary blob)
+                const blob = await response.blob();
+
+                // Extract filename from Content-Disposition header
+                let filename = 'group_members.xlsx';
+                const contentDisposition = response.headers.get('Content-Disposition');
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+                    if (filenameMatch && filenameMatch[1]) {
+                        filename = filenameMatch[1];
+                    }
+                }
+
+                // Create download link and trigger download
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                console.log(`✅ Excel file downloaded: ${filename}`);
+                alert(`✅ Successfully extracted group members!\n\nExcel file "${filename}" has been downloaded.\n\n${excludeAdmins ? 'Admins were excluded from the export.' : 'All members included.'}`);
+
             } catch (error) {
                 console.error('Error extracting contacts:', error);
-                alert(`❌ Error extracting contacts:\n${error.message || 'Network error. Please check your connection.'}`);
+                alert(`❌ Error extracting contacts:\n${error.message || 'Network error. Please check your connection.'}\n\nPlease make sure:\n1. WhatsApp is connected\n2. You are a member of this group\n3. The Group ID is correct`);
             } finally {
                 // Restore button state
                 btn.disabled = false;
@@ -5816,17 +6049,26 @@ Example:
         }
 
         function downloadContactsCSV(members, groupName, excludeAdmins) {
-            // Create CSV content with proper headers
-            let csv = 'Name,Phone,IsAdmin\n';
+            // Add UTF-8 BOM to ensure Excel opens correctly
+            const BOM = '﻿';
+
+            // Create CSV content with properly quoted headers
+            let csv = BOM + '"Name","Phone","IsAdmin"\n';
 
             members.forEach(member => {
-                // Escape commas and quotes in names
-                const name = member.name.replace(/"/g, '""');
-                const phone = member.phone;
-                const isAdmin = member.isAdmin ? 'Yes' : 'No';
+                // Escape double quotes in name by doubling them
+                const name = (member.name || '').replace(/"/g, '""');
 
-                // Use quotes around name in case it contains commas
-                csv += `"${name}",${phone},${isAdmin}\n`;
+                // Format phone with = prefix to force Excel to treat as text
+                // This prevents scientific notation for numbers starting with +
+                const phone = member.phone || '';
+                const phoneForExcel = `="${phone}"`; // ="+ 923001234567" forces text in Excel
+
+                // Ensure isAdmin is a string
+                const isAdmin = member.isAdmin === 'Yes' || member.isAdmin === true ? 'Yes' : 'No';
+
+                // All fields properly quoted and escaped
+                csv += `"${name}",${phoneForExcel},"${isAdmin}"\n`;
             });
 
             // Create download link
@@ -5845,10 +6087,9 @@ Example:
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
 
-            console.log(`✅ Downloaded ${members.length} contacts as CSV`);
+            console.log(`✅ Downloaded ${members.length} contacts as CSV with proper Excel formatting`);
         }
 
-        window.saveDNDSettings = saveDNDSettings;
         window.createCampaign = createCampaign;
         window.startCampaign = startCampaign;
         window.deleteCampaign = deleteCampaign;
@@ -5878,7 +6119,7 @@ Example:
                 console.log('⚡ Bypassing naming mismatch - Triggering Campaign ID:', id);
 
                 try {
-                    const response = await fetch(`/api/bulk/campaigns/${id}/start`, { method: 'POST' });
+                    const response = await apiPost(`/api/bulk/campaigns/${id}/start`, {});
                     if (response.ok) {
                         console.log('🚀 Campaign started successfully via global bypass!');
                         if (typeof loadCampaigns === 'function') loadCampaigns();
@@ -5897,7 +6138,7 @@ Example:
                 const id = pauseBtn.dataset.id;
                 console.log('⚡ Global Bypass - Pausing Campaign ID:', id);
                 try {
-                    const response = await fetch(`/api/bulk/campaigns/${id}/pause`, { method: 'POST' });
+                    const response = await apiPost(`/api/bulk/campaigns/${id}/pause`, {});
                     if (response.ok) {
                         console.log('⏸️ Campaign paused successfully via global bypass!');
                         if (typeof loadCampaigns === 'function') loadCampaigns();
@@ -5914,7 +6155,7 @@ Example:
                 const id = stopBtn.dataset.id;
                 console.log('⚡ Global Bypass - Stopping Campaign ID:', id);
                 try {
-                    const response = await fetch(`/api/bulk/campaigns/${id}/stop`, { method: 'POST' });
+                    const response = await apiPost(`/api/bulk/campaigns/${id}/stop`, {});
                     if (response.ok) {
                         console.log('🛑 Campaign stopped successfully via global bypass!');
                         if (typeof loadCampaigns === 'function') loadCampaigns();
@@ -5931,7 +6172,7 @@ Example:
                 const id = resumeBtn.dataset.id;
                 console.log('⚡ Global Bypass - Resuming Campaign ID:', id);
                 try {
-                    const response = await fetch(`/api/bulk/campaigns/${id}/resume`, { method: 'POST' });
+                    const response = await apiPost(`/api/bulk/campaigns/${id}/resume`, {});
                     if (response.ok) {
                         console.log('▶️ Campaign resumed successfully via global bypass!');
                         if (typeof loadCampaigns === 'function') loadCampaigns();
@@ -5964,7 +6205,7 @@ Example:
         // ===== DASHBOARD STATISTICS FUNCTIONS =====
         async function fetchDashboardStats() {
             try {
-                const response = await fetch('/api/dashboard/stats');
+                const response = await apiGet('/api/dashboard/stats');
                 const data = await response.json();
 
                 if (data.success && data.stats) {
@@ -6076,7 +6317,7 @@ Example:
 
             try {
                 // Fetch campaign details
-                const response = await fetch(`/api/bulk/campaigns/${currentExportCampaignId}`);
+                const response = await apiGet(`/api/bulk/campaigns/${currentExportCampaignId}`);
                 const data = await response.json();
 
                 if (!data.success || !data.campaign) {
