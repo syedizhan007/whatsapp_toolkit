@@ -41,6 +41,47 @@ class BulkSenderService {
   }
 
   /**
+   * Send message with auto-retry and exponential backoff
+   * @param {Object} sock - Baileys socket
+   * @param {string} jid - WhatsApp JID
+   * @param {Object} content - Message content object
+   * @param {number} maxRetries - Maximum retry attempts (default: 3)
+   * @returns {Promise<Object>} Send result
+   */
+  async sendMessageWithRetry(sock, jid, content, maxRetries = 3) {
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Attempt to send the message
+        const result = await sock.sendMessage(jid, content);
+
+        if (attempt > 0) {
+          console.log(`   ✅ Succeeded on retry attempt ${attempt}`);
+        }
+
+        return result;
+      } catch (error) {
+        lastError = error;
+
+        if (attempt < maxRetries) {
+          // Calculate exponential backoff delay: 2^attempt * 1000ms
+          const backoffDelay = Math.pow(2, attempt) * 1000;
+          console.log(`   ⚠️ Attempt ${attempt + 1} failed: ${error.message}`);
+          console.log(`   ⏳ Retrying in ${backoffDelay/1000}s... (${attempt + 1}/${maxRetries} retries)`);
+
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        }
+      }
+    }
+
+    // All retries exhausted - throw the last error
+    console.log(`   ❌ All ${maxRetries} retry attempts exhausted`);
+    throw lastError;
+  }
+
+  /**
    * Send bulk messages for a campaign
    * @param {string} userId - User ID
    * @param {Array} contacts - Array of contacts with phone, name, etc.
@@ -123,8 +164,8 @@ class BulkSenderService {
           console.log(`📤 Sending to ${contact.name} (${contact.phone})...`);
         }
 
-        // Send text message using Baileys
-        await sock.sendMessage(jid, { text: personalizedMessage });
+        // Send text message using Baileys with auto-retry
+        await this.sendMessageWithRetry(sock, jid, { text: personalizedMessage });
         console.log(`✅ Message sent successfully`);
 
         sent++;
@@ -148,14 +189,14 @@ class BulkSenderService {
               console.log(`📎 Sending media: ${media.filename || media.url}`);
 
               if (media.url) {
-                // Send from URL
-                await sock.sendMessage(jid, {
+                // Send from URL with retry
+                await this.sendMessageWithRetry(sock, jid, {
                   image: { url: media.url },
                   caption: media.caption || ''
                 });
               } else if (media.buffer) {
-                // Send from buffer
-                await sock.sendMessage(jid, {
+                // Send from buffer with retry
+                await this.sendMessageWithRetry(sock, jid, {
                   image: media.buffer,
                   caption: media.caption || ''
                 });
