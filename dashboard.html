@@ -2293,7 +2293,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                                 <option value="all">All Status</option>
                                 <option value="new">New Only</option>
                                 <option value="pending">Pending Only</option>
-                                <option value="completed">Completed Only</option>
                             </select>
                             <input type="text" placeholder="Search by name or phone..." style="flex: 1; min-width: 200px; padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 6px; color: white;">
                         </div>
@@ -3304,13 +3303,12 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 dealsChart = new Chart(dealsCtx, {
                     type: 'doughnut',
                     data: {
-                        labels: ['New', 'Pending', 'Completed'],
+                        labels: ['New', 'Pending'],
                         datasets: [{
-                            data: [0, 0, 0],
+                            data: [0, 0],
                             backgroundColor: [
                                 '#00d4ff',
-                                '#f59e0b',
-                                '#10b981'
+                                '#f59e0b'
                             ],
                             borderWidth: 0
                         }]
@@ -3350,8 +3348,7 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             const breakdown = stats.dealsBreakdown;
             dealsChart.data.datasets[0].data = [
                 breakdown.new || 0,
-                breakdown.pending || 0,
-                breakdown.completed || 0
+                breakdown.pending || 0
             ];
             dealsChart.update();
         }
@@ -4858,7 +4855,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
 
                     // Update counters
                     document.getElementById('totalDealsCount').textContent = data.totalDeals || 0;
-                    document.getElementById('completedDealsCount').textContent = data.completed || 0;
                     document.getElementById('pendingDealsCount').textContent = data.pending || 0;
 
                     // Update pagination info
