@@ -2495,13 +2495,9 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
 
                 socket.on('connect', () => {
                     console.log('✓ Socket.IO connected - WhatsApp client should initialize now');
-                    // Show loading state explicitly
-                    const loadingState = document.getElementById('loading-state');
-                    if (loadingState) {
-                        hideAllConnectionStates();
-                        loadingState.style.display = 'flex';
-                        console.log('✓ Loading state displayed');
-                    }
+
+                    // Check current WhatsApp connection status immediately
+                    checkWhatsAppStatus();
                 });
 
                 socket.on('disconnect', () => {
@@ -2681,6 +2677,31 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                     updateCampaignPaused(data);
                     showNotification('Campaign paused', 'info');
                 });
+            }
+
+            // Check current WhatsApp connection status
+            async function checkWhatsAppStatus() {
+                try {
+                    console.log('🔍 Checking current WhatsApp connection status...');
+                    const response = await apiGet('/api/whatsapp/status');
+                    const data = await response.json();
+
+                    console.log('📱 Current WhatsApp status:', data);
+
+                    if (data.success && data.connected && data.info) {
+                        // Already connected - show connected state
+                        console.log('✅ WhatsApp is already connected');
+                        showConnectedState(data.info);
+                        updateWhatsAppStatus(true, data.info);
+                    } else {
+                        // Not connected - show loading/QR state
+                        console.log('⏳ WhatsApp not connected, waiting for QR or connection...');
+                        showLoadingState('Initializing WhatsApp...');
+                    }
+                } catch (error) {
+                    console.error('❌ Failed to check WhatsApp status:', error);
+                    showLoadingState('Connecting to server...');
+                }
             }
 
             // Update WhatsApp status in sidebar
