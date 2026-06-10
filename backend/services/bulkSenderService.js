@@ -159,14 +159,70 @@ class BulkSenderService {
           .replace(/{phone}/g, contact.phone || '');
 
         if (isTemplateRotation) {
-          console.log(`📤 Sending to ${contact.name} (${contact.phone}) - Template ${templates.indexOf(selectedTemplate) + 1}/${templates.length}...`);
+          console.log(`📤 Sending to ${contact.name} (${contact.phone}) - Template ${templates.indexOf(selectedTemplate) + 1}/${templates.length}`);
+          console.log(`   Message: "${personalizedMessage.substring(0, 60)}..."`);
         } else {
           console.log(`📤 Sending to ${contact.name} (${contact.phone})...`);
         }
 
-        // Send text message using Baileys with auto-retry
-        await this.sendMessageWithRetry(sock, jid, { text: personalizedMessage });
-        console.log(`✅ Message sent successfully`);
+        // UNIFIED MESSAGE SENDING: Combine text + media into ONE message
+        if (mediaFiles && mediaFiles.length > 0) {
+          // Media present - send media with text as caption (SINGLE MESSAGE)
+          const media = mediaFiles[0]; // Use first media file
+
+          try {
+            console.log(`📎 Sending media with message caption: ${media.filename || media.url}`);
+
+            if (media.url) {
+              // Send from URL with retry
+              await this.sendMessageWithRetry(sock, jid, {
+                image: { url: media.url },
+                caption: personalizedMessage // Use personalized message as caption
+              });
+            } else if (media.buffer) {
+              // Send from buffer with retry
+              await this.sendMessageWithRetry(sock, jid, {
+                image: media.buffer,
+                caption: personalizedMessage // Use personalized message as caption
+              });
+            }
+
+            console.log(`✅ Media + message sent successfully (single delivery)`);
+
+            // Send additional media files if present (without duplicate text)
+            if (mediaFiles.length > 1) {
+              console.log(`📎 Sending ${mediaFiles.length - 1} additional media file(s)...`);
+              for (let i = 1; i < mediaFiles.length; i++) {
+                const additionalMedia = mediaFiles[i];
+                try {
+                  await new Promise(resolve => setTimeout(resolve, 2000)); // Small delay
+
+                  if (additionalMedia.url) {
+                    await this.sendMessageWithRetry(sock, jid, {
+                      image: { url: additionalMedia.url },
+                      caption: '' // No caption for additional files
+                    });
+                  } else if (additionalMedia.buffer) {
+                    await this.sendMessageWithRetry(sock, jid, {
+                      image: additionalMedia.buffer,
+                      caption: '' // No caption for additional files
+                    });
+                  }
+                  console.log(`   ✅ Additional media ${i}/${mediaFiles.length - 1} sent`);
+                } catch (mediaError) {
+                  console.error(`   ❌ Failed to send additional media ${i}:`, mediaError.message);
+                }
+              }
+            }
+          } catch (mediaError) {
+            console.error(`❌ Failed to send media:`, mediaError.message);
+            throw mediaError; // Propagate to outer catch for failure tracking
+          }
+        } else {
+          // No media - send text-only message with auto-retry
+          await this.sendMessageWithRetry(sock, jid, { text: personalizedMessage });
+          console.log(`✅ Text message sent successfully`);
+        }
 
         sent++;
 
@@ -180,37 +236,6 @@ class BulkSenderService {
             pending: contacts.length - sent - failed - skipped,
             current: contact.phone
           });
-        }
-
-        // Send media files if provided
-        if (mediaFiles && mediaFiles.length > 0) {
-          for (const media of mediaFiles) {
-            try {
-              console.log(`📎 Sending media: ${media.filename || media.url}`);
-
-              if (media.url) {
-                // Send from URL with retry
-                await this.sendMessageWithRetry(sock, jid, {
-                  image: { url: media.url },
-                  caption: media.caption || ''
-                });
-              } else if (media.buffer) {
-                // Send from buffer with retry
-                await this.sendMessageWithRetry(sock, jid, {
-                  image: media.buffer,
-                  caption: media.caption || ''
-                });
-              }
-
-              console.log(`✅ Media sent successfully`);
-
-              // Small delay between media files
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            } catch (mediaError) {
-              console.error(`❌ Failed to send media:`, mediaError.message);
-              // Continue even if media fails
-            }
-          }
         }
 
         // Gaussian delay before next contact - mimics human behavior
