@@ -44,7 +44,7 @@ class BulkSenderService {
    * Send bulk messages for a campaign
    * @param {string} userId - User ID
    * @param {Array} contacts - Array of contacts with phone, name, etc.
-   * @param {string} message - Message template
+   * @param {string|Array<string>} message - Message template (single string) or array of templates for rotation
    * @param {Array} mediaFiles - Optional media files
    * @param {Object} options - Campaign options (delay, etc.)
    */
@@ -56,12 +56,24 @@ class BulkSenderService {
     const sock = this.getSocket(userId);
     const delay = options.delay || 10000; // Default 10 seconds between messages
 
+    // Template rotation setup
+    const isTemplateRotation = Array.isArray(message);
+    const templates = isTemplateRotation ? message : [message];
+
+    // Validate templates
+    if (templates.length === 0 || templates.some(t => !t || typeof t !== 'string')) {
+      throw new Error('Invalid message templates provided');
+    }
+
     let sent = 0;
     let failed = 0;
     let skipped = 0;
 
     console.log(`\n🚀 Starting bulk send for user ${userId}`);
     console.log(`📊 Total contacts: ${contacts.length}`);
+    if (isTemplateRotation) {
+      console.log(`🔄 Template rotation enabled: ${templates.length} templates`);
+    }
 
     for (let i = 0; i < contacts.length; i++) {
       const contact = contacts[i];
@@ -95,14 +107,21 @@ class BulkSenderService {
         // Add @c.us suffix for Baileys
         const jid = phoneNumber + '@s.whatsapp.net';
 
-        // Personalize message
-        let personalizedMessage = message
+        // Template rotation: randomly select one template from the array
+        const selectedTemplate = templates[Math.floor(Math.random() * templates.length)];
+
+        // Personalize message with contact data
+        let personalizedMessage = selectedTemplate
           .replace(/{name}/g, contact.name || 'there')
           .replace(/{city}/g, contact.city || '')
           .replace(/{tag}/g, contact.tag || '')
           .replace(/{phone}/g, contact.phone || '');
 
-        console.log(`📤 Sending to ${contact.name} (${contact.phone})...`);
+        if (isTemplateRotation) {
+          console.log(`📤 Sending to ${contact.name} (${contact.phone}) - Template ${templates.indexOf(selectedTemplate) + 1}/${templates.length}...`);
+        } else {
+          console.log(`📤 Sending to ${contact.name} (${contact.phone})...`);
+        }
 
         // Send text message using Baileys
         await sock.sendMessage(jid, { text: personalizedMessage });
