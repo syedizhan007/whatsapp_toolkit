@@ -1,411 +1,417 @@
 const path = require('path');
 const fs = require('fs');
+const { gaussianDelay } = require('../utils/helpers');
 
-// Import bulk-sender modules
-const CampaignManager = require('../../bulk-sender/campaign-manager');
-const CSVHandler = require('../../bulk-sender/csv-handler');
-const Utils = require('../../bulk-sender/utils');
-
+/**
+ * Bulk Sender Service - Baileys Compatible
+ * This service integrates with the main server's Baileys WhatsApp clients
+ */
 class BulkSenderService {
   constructor() {
-    this.campaignManager = null;
+    this.whatsappClients = null;
+    this.io = null;
     this.isInitialized = false;
-    this.uploadsDir = path.join(__dirname, '../../bulk-sender/uploads');
-    this.resultsDir = path.join(__dirname, '../../bulk-sender/results');
-    this.currentQRCode = null; // Store current QR code
-    this.whatsappStatus = {
-      connected: false,
-      ready: false,
-      qrCode: null
-    };
   }
 
-  async initialize() {
-    if (this.isInitialized) {
-      return;
+  /**
+   * Initialize service with WhatsApp clients from main server
+   */
+  initialize(whatsappClients, io) {
+    this.whatsappClients = whatsappClients;
+    this.io = io;
+    this.isInitialized = true;
+    console.log('✓ Bulk Sender Service initialized with Baileys integration');
+  }
+
+  /**
+   * Get WhatsApp socket for a specific user
+   */
+  getSocket(userId) {
+    if (!this.whatsappClients || !this.whatsappClients.has(userId)) {
+      throw new Error(`No WhatsApp client found for user ${userId}`);
     }
 
-    try {
-      const Utils = require('../../bulk-sender/utils');
-      const CampaignManager = require('../../bulk-sender/campaign-manager');
-      const QRCode = require('qrcode');
+    const userData = this.whatsappClients.get(userId);
 
-      Utils.ensureDir(this.uploadsDir);
-      Utils.ensureDir(this.resultsDir);
-
-      console.log('✓ Initializing Bulk Sender Service with WhatsApp...');
-
-      // Use the REAL CampaignManager class
-      this.campaignManager = new CampaignManager();
-
-      // Initialize it (this creates WhatsApp client internally)
-      await this.campaignManager.initialize();
-
-      // NOW hook into the existing WhatsApp client to capture QR
-      if (this.campaignManager.whatsapp && this.campaignManager.whatsapp.client) {
-        const client = this.campaignManager.whatsapp.client;
-
-        // Add our QR code capture listener
-        client.on('qr', async (qr) => {
-          console.log('📱 QR Code generated!');
-          try {
-            const qrDataURL = await QRCode.toDataURL(qr);
-            this.whatsappStatus.qrCode = qrDataURL;
-            this.whatsappStatus.connected = false;
-            this.whatsappStatus.ready = false;
-            console.log('✓ QR Code available at: GET /api/bulk/whatsapp/qr');
-          } catch (err) {
-            console.error('Error generating QR code:', err);
-          }
-        });
-
-        client.on('ready', () => {
-          console.log('✅ WhatsApp connected and ready!');
-          this.whatsappStatus.connected = true;
-          this.whatsappStatus.ready = true;
-          this.whatsappStatus.qrCode = null;
-        });
-
-        client.on('disconnected', (reason) => {
-          console.log('❌ WhatsApp disconnected:', reason);
-          this.whatsappStatus.connected = false;
-          this.whatsappStatus.ready = false;
-          this.whatsappStatus.qrCode = null;
-        });
-      }
-
-      this.isInitialized = true;
-      console.log('✓ Bulk Sender Service fully initialized');
-    } catch (error) {
-      console.error('✗ Failed to initialize Bulk Sender Service:', error);
-      throw error;
+    if (!userData.isReady || !userData.client) {
+      throw new Error(`WhatsApp client not ready for user ${userId}`);
     }
+
+    return userData.client;
   }
 
-  getWhatsAppStatus() {
-    return {
-      success: true,
-      connected: this.whatsappStatus.connected,
-      ready: this.whatsappStatus.ready,
-      hasQRCode: this.whatsappStatus.qrCode !== null,
-      message: this.whatsappStatus.ready ? 'WhatsApp connected' :
-               this.whatsappStatus.qrCode ? 'Scan QR code to connect' :
-               'Initializing...'
-    };
-  }
-
-  getQRCode() {
-    return this.whatsappStatus.qrCode;
-  }
-
-  async createCampaign(name, message, contacts, mediaFiles = []) {
-    try {
-      const Utils = require('../../bulk-sender/utils');
-      const DatabaseManager = require('../../bulk-sender/database');
-
-      // Validate inputs
-      if (!name || !message) {
-        throw new Error('Name and message are required');
-      }
-
-      if (!Array.isArray(contacts)) {
-        throw new Error('Contacts must be an array');
-      }
-
-      if (contacts.length === 0) {
-        throw new Error('At least one contact is required');
-      }
-
-      Utils.ensureDir(this.uploadsDir);
-      Utils.ensureDir(this.resultsDir);
-
-      // Use singleton database instance
-      if (!this.campaignManager || !this.campaignManager.db) {
-        this.campaignManager = {
-          db: new DatabaseManager()
-        };
-        await this.campaignManager.db.initialize();
-      }
-
-      // Attach media files to contacts if provided
-      let processedContacts = contacts;
-      if (mediaFiles && Array.isArray(mediaFiles) && mediaFiles.length > 0) {
-        processedContacts = contacts.map(contact => {
-          const contactMedia = mediaFiles.filter(m =>
-            m.phone === contact.phone || m.forAll === true
-          );
-
-          if (contactMedia.length > 0) {
-            return {
-              ...contact,
-              media_files: contactMedia.map(m => ({
-                path: m.path,
-                type: m.type,
-                caption: m.caption || ''
-              }))
-            };
-          }
-
-          return contact;
-        });
-      }
-
-      // Create campaign in database
-      const campaignId = this.campaignManager.db.createCampaign(name, message);
-
-      // Add contacts to database
-      this.campaignManager.db.addContacts(campaignId, processedContacts);
-
-      return {
-        success: true,
-        campaignId,
-        message: `Campaign created with ${processedContacts.length} contacts. Click Start to begin sending.`
-      };
-    } catch (error) {
-      console.error('Error creating campaign:', error);
-      return {
-        success: false,
-        message: error.message || 'Failed to create campaign'
-      };
+  /**
+   * Send bulk messages for a campaign
+   * @param {string} userId - User ID
+   * @param {Array} contacts - Array of contacts with phone, name, etc.
+   * @param {string} message - Message template
+   * @param {Array} mediaFiles - Optional media files
+   * @param {Object} options - Campaign options (delay, etc.)
+   */
+  async sendBulkMessages(userId, contacts, message, mediaFiles = [], options = {}) {
+    if (!this.isInitialized) {
+      throw new Error('Service not initialized');
     }
-  }
 
-  async startCampaign(campaignId) {
-    try {
-      // Initialize full campaign manager with WhatsApp client
-      if (!this.isInitialized) {
-        console.log('🔄 Initializing WhatsApp client for campaign...');
-        await this.initialize();
+    const sock = this.getSocket(userId);
+    const delay = options.delay || 10000; // Default 10 seconds between messages
+
+    let sent = 0;
+    let failed = 0;
+    let skipped = 0;
+
+    console.log(`\n🚀 Starting bulk send for user ${userId}`);
+    console.log(`📊 Total contacts: ${contacts.length}`);
+
+    for (let i = 0; i < contacts.length; i++) {
+      const contact = contacts[i];
+
+      // Check if campaign should stop
+      if (options.stopRequested && options.stopRequested()) {
+        console.log(`🛑 Campaign stopped by user at ${sent}/${contacts.length}`);
+        break;
       }
 
-      // Start campaign in background
-      setImmediate(async () => {
-        try {
-          console.log(`🚀 Starting campaign ${campaignId}...`);
-          await this.campaignManager.startCampaign(campaignId);
-          console.log(`✅ Campaign ${campaignId} completed!`);
-        } catch (error) {
-          console.error(`❌ Campaign ${campaignId} execution error:`, error);
+      // Check if campaign is paused
+      while (options.isPaused && options.isPaused()) {
+        console.log(`⏸️ Campaign paused, waiting...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        if (options.stopRequested && options.stopRequested()) {
+          console.log(`🛑 Campaign stopped while paused`);
+          return { sent, failed, skipped };
         }
-      });
+      }
 
-      return {
-        success: true,
-        message: 'Campaign started. WhatsApp client is initializing...'
-      };
-    } catch (error) {
-      console.error('Error starting campaign:', error);
-      throw error;
-    }
-  }
+      try {
+        // Format phone number for Baileys
+        let phoneNumber = contact.phone.replace(/[^0-9]/g, '');
 
-  async pauseCampaign(campaignId) {
-    if (!this.isInitialized) {
-      throw new Error('Service not initialized');
-    }
-
-    this.campaignManager.pauseCampaign();
-
-    return {
-      success: true,
-      message: 'Campaign paused'
-    };
-  }
-
-  async stopCampaign(campaignId) {
-    if (!this.isInitialized) {
-      throw new Error('Service not initialized');
-    }
-
-    this.campaignManager.stopCampaign(campaignId);
-
-    return {
-      success: true,
-      message: 'Campaign stopped'
-    };
-  }
-
-  async resumeCampaign(campaignId) {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
-    try {
-      // Resume campaign in background
-      setImmediate(async () => {
-        try {
-          await this.campaignManager.resumeCampaign(campaignId);
-        } catch (error) {
-          console.error('Campaign resume error:', error);
+        // Pakistani number sanitization: remove leading 0 and prefix with 92
+        if (phoneNumber.startsWith('0')) {
+          phoneNumber = '92' + phoneNumber.substring(1);
         }
-      });
 
-      return {
-        success: true,
-        message: 'Campaign resumed'
-      };
-    } catch (error) {
-      console.error('Error resuming campaign:', error);
-      throw error;
+        // Add @c.us suffix for Baileys
+        const jid = phoneNumber + '@s.whatsapp.net';
+
+        // Personalize message
+        let personalizedMessage = message
+          .replace(/{name}/g, contact.name || 'there')
+          .replace(/{city}/g, contact.city || '')
+          .replace(/{tag}/g, contact.tag || '')
+          .replace(/{phone}/g, contact.phone || '');
+
+        console.log(`📤 Sending to ${contact.name} (${contact.phone})...`);
+
+        // Send text message using Baileys
+        await sock.sendMessage(jid, { text: personalizedMessage });
+        console.log(`✅ Message sent successfully`);
+
+        sent++;
+
+        // Emit progress update via Socket.IO
+        if (this.io && options.campaignId) {
+          this.io.to(userId).emit('bulk-campaign:progress', {
+            campaignId: options.campaignId,
+            sent,
+            failed,
+            skipped,
+            pending: contacts.length - sent - failed - skipped,
+            current: contact.phone
+          });
+        }
+
+        // Send media files if provided
+        if (mediaFiles && mediaFiles.length > 0) {
+          for (const media of mediaFiles) {
+            try {
+              console.log(`📎 Sending media: ${media.filename || media.url}`);
+
+              if (media.url) {
+                // Send from URL
+                await sock.sendMessage(jid, {
+                  image: { url: media.url },
+                  caption: media.caption || ''
+                });
+              } else if (media.buffer) {
+                // Send from buffer
+                await sock.sendMessage(jid, {
+                  image: media.buffer,
+                  caption: media.caption || ''
+                });
+              }
+
+              console.log(`✅ Media sent successfully`);
+
+              // Small delay between media files
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            } catch (mediaError) {
+              console.error(`❌ Failed to send media:`, mediaError.message);
+              // Continue even if media fails
+            }
+          }
+        }
+
+        // Gaussian delay before next contact - mimics human behavior
+        console.log(`⏳ Applying human-like delay before next contact...`);
+        const actualDelay = await gaussianDelay();
+        console.log(`⏳ Waited ${(actualDelay/1000).toFixed(2)}s (Gaussian distributed)`);
+
+
+      } catch (error) {
+        // ROBUST ERROR HANDLING - DO NOT CRASH THE LOOP
+        console.error(`❌ Failed to send to ${contact.name} (${contact.phone}):`, error.message);
+        failed++;
+
+        // Emit failure update via Socket.IO
+        if (this.io && options.campaignId) {
+          this.io.to(userId).emit('bulk-campaign:progress', {
+            campaignId: options.campaignId,
+            sent,
+            failed,
+            skipped,
+            pending: contacts.length - sent - failed - skipped,
+            current: contact.phone,
+            error: error.message
+          });
+        }
+
+        // CONTINUE TO NEXT NUMBER - DO NOT CRASH
+        continue;
+      }
     }
+
+    console.log(`\n✅ Bulk send completed for user ${userId}`);
+    console.log(`📊 Sent: ${sent}, Failed: ${failed}, Skipped: ${skipped}`);
+
+    return { sent, failed, skipped };
   }
 
-  async getCampaigns() {
-    try {
-      const DatabaseManager = require('../../bulk-sender/database');
+  /**
+   * Extract groups for a user using Baileys
+   */
+  async extractGroups(userId) {
+    if (!this.isInitialized) {
+      throw new Error('Service not initialized');
+    }
 
-      // Initialize database if not already done
-      if (!this.campaignManager || !this.campaignManager.db) {
-        this.campaignManager = {
-          db: new DatabaseManager()
-        };
-        await this.campaignManager.db.initialize();
+    const sock = this.getSocket(userId);
+
+    try {
+      console.log(`📥 Fetching groups for user ${userId} using Baileys...`);
+
+      // Use Baileys method to fetch all participating groups
+      const groupsResponse = await sock.groupFetchAllParticipating();
+
+      const groups = [];
+
+      // Iterate over the groups object
+      for (const [jid, group] of Object.entries(groupsResponse)) {
+        groups.push({
+          id: jid,
+          name: group.subject || 'Unnamed Group',
+          participantCount: group.participants ? group.participants.length : 0,
+          desc: group.desc || '',
+          owner: group.owner || null,
+          creation: group.creation || null
+        });
       }
 
-      const campaigns = this.campaignManager.db.getAllCampaigns();
-      return campaigns;
+      console.log(`✅ Found ${groups.length} groups for user ${userId}`);
+
+      return {
+        success: true,
+        groups
+      };
     } catch (error) {
-      console.error('Error getting campaigns:', error);
-      return [];
+      console.error(`❌ Error fetching groups for user ${userId}:`, error.message);
+      throw error;
     }
   }
 
-  async getCampaign(campaignId) {
-    try {
-      const DatabaseManager = require('../../bulk-sender/database');
+  /**
+   * Extract group members using Baileys with STRICT pushName lookup
+   * Returns clean raw data for Excel export
+   */
+  async extractGroupMembers(userId, groupId, options = {}) {
+    if (!this.isInitialized) {
+      throw new Error('Service not initialized');
+    }
 
-      // Initialize database if not already done
-      if (!this.campaignManager || !this.campaignManager.db) {
-        this.campaignManager = {
-          db: new DatabaseManager()
-        };
-        await this.campaignManager.db.initialize();
+    const sock = this.getSocket(userId);
+
+    try {
+      console.log(`📥 Extracting members from group ${groupId} for user ${userId}...`);
+
+      // Ensure group ID has proper format
+      let formattedGroupId = groupId;
+      if (!groupId.includes('@g.us')) {
+        formattedGroupId = groupId + '@g.us';
       }
 
-      const campaign = this.campaignManager.db.getCampaign(campaignId);
-      return campaign;
-    } catch (error) {
-      console.error('Error getting campaign:', error);
-      return null;
-    }
-  }
+      // Fetch group metadata using Baileys
+      const groupMetadata = await sock.groupMetadata(formattedGroupId);
 
-  async deleteCampaign(campaignId) {
-    if (!this.isInitialized) {
-      throw new Error('Service not initialized');
-    }
+      const members = [];
+      const excludeAdmins = options.excludeAdmins || false;
 
-    this.campaignManager.deleteCampaign(campaignId);
+      console.log(`✓ Found group: ${groupMetadata.subject} with ${groupMetadata.participants.length} participants`);
 
-    return {
-      success: true,
-      message: 'Campaign deleted'
-    };
-  }
+      // DEBUG: Log raw participants data to see what Baileys returns
+      console.log('\n📋 RAW PARTICIPANTS DATA:');
+      console.log(JSON.stringify(groupMetadata.participants, null, 2));
+      console.log('');
 
-  async importContactsFromCSV(csvFilePath) {
-    try {
-      const contacts = await CSVHandler.importContacts(csvFilePath);
+      let skippedInvalid = 0;
+
+      // CLEAN PARTICIPANT EXTRACTION LOOP
+      for (let i = 0; i < groupMetadata.participants.length; i++) {
+        const participant = groupMetadata.participants[i];
+
+        try {
+          // 1. Extract the raw JID safely - CHECK phoneNumber FIRST (new WhatsApp structure)
+          const participantJid = participant.phoneNumber || participant.id || participant.jid;
+
+          if (!participantJid) {
+            console.log(`   ⚠️ [${i}] Skipped: No JID`);
+            skippedInvalid++;
+            continue;
+          }
+
+          // 2. POSITIVE FILTERING: Only keep real WhatsApp phone numbers
+          // Accept: @s.whatsapp.net or @c.us (these are real phone numbers)
+          // Reject: @lid (linked devices), @broadcast, anything else
+          const isRealPhoneNumber = participantJid.includes('@s.whatsapp.net') || participantJid.includes('@c.us');
+
+          if (!isRealPhoneNumber) {
+            console.log(`   ⏭️ [${i}] Skipped non-phone JID: ${participantJid}`);
+            skippedInvalid++;
+            continue;
+          }
+
+          // 3. Clean phone number to digits only
+          const phoneClean = participantJid.split('@')[0].replace(/\D/g, '');
+          if (!phoneClean) {
+            console.log(`   ⚠️ [${i}] Skipped: No phone after cleaning from ${participantJid}`);
+            skippedInvalid++;
+            continue;
+          }
+
+          // 4. Determine Admin Status (strictly lowercase 'yes' or 'no')
+          let adminStatus = 'no';
+          if (participant.admin === 'admin' || participant.admin === 'superadmin' || participant.isAdmin === true) {
+            adminStatus = 'yes';
+          }
+
+          // 5. Skip admins if exclusion enabled
+          if (excludeAdmins && adminStatus === 'yes') {
+            console.log(`   ⏭️ [${i}] Skipped admin: ${phoneClean}`);
+            continue;
+          }
+
+          // 6. Resolve Name (try multiple sources, default to 'WhatsApp User')
+          let displayName = null;
+
+          // Try participant object first (notify is the pushName)
+          displayName = participant.notify || participant.name;
+
+          // Try Baileys contact store if still not found
+          if (!displayName && sock.store?.contacts?.[participantJid]) {
+            displayName = sock.store.contacts[participantJid].pushName ||
+                         sock.store.contacts[participantJid].name ||
+                         sock.store.contacts[participantJid].notify;
+          }
+
+          // Final fallback to 'WhatsApp User' for professional Excel export
+          if (!displayName) {
+            displayName = 'WhatsApp User';
+          }
+
+          // 7. Add to members array
+          members.push({
+            name: displayName,
+            phone: phoneClean,
+            isAdmin: adminStatus,
+            jid: participantJid
+          });
+
+          console.log(`   ✅ [${i}] Added: ${displayName} | ${phoneClean} | Admin: ${adminStatus}`);
+
+        } catch (participantError) {
+          console.error(`   ❌ Error processing participant at index ${i}:`, participantError.message);
+          skippedInvalid++;
+          continue;
+        }
+      }
+
+      const finalCount = members.length;
+
+      console.log(`\n📊 EXTRACTION COMPLETE:`);
+      console.log(`   Total participants: ${groupMetadata.participants.length}`);
+      console.log(`   Valid phone numbers extracted: ${finalCount}`);
+      console.log(`   Invalid/linked devices skipped: ${skippedInvalid}`);
+
+      if (finalCount === 0) {
+        console.log('⚠️ No real WhatsApp phone numbers found');
+      } else {
+        console.log(`✅ Extracted ${finalCount} members from ${groupMetadata.subject}`);
+      }
+
       return {
         success: true,
-        contacts,
-        count: contacts.length
+        groupName: groupMetadata.subject,
+        groupId: formattedGroupId,
+        members: members,
+        total: members.length
       };
     } catch (error) {
-      console.error('Error importing CSV:', error);
+      console.error(`❌ Error extracting group members for user ${userId}:`, error.message);
       throw error;
     }
   }
 
-  async exportResults(campaignId) {
+  /**
+   * Send message with media using Baileys
+   */
+  async sendMessageWithMedia(userId, jid, messageText, mediaUrl, caption = '') {
     if (!this.isInitialized) {
       throw new Error('Service not initialized');
     }
 
+    const sock = this.getSocket(userId);
+
     try {
-      const history = this.campaignManager.db.getMessageHistory(campaignId);
-      const outputFile = path.join(this.resultsDir, `campaign_${campaignId}_results_${Date.now()}.csv`);
+      // Send text message first if provided
+      if (messageText) {
+        await sock.sendMessage(jid, { text: messageText });
+      }
 
-      await CSVHandler.exportResults(outputFile, history);
+      // Send media
+      if (mediaUrl) {
+        await sock.sendMessage(jid, {
+          image: { url: mediaUrl },
+          caption: caption
+        });
+      }
 
-      return {
-        success: true,
-        filePath: outputFile,
-        message: 'Results exported'
-      };
+      return { success: true };
     } catch (error) {
-      console.error('Error exporting results:', error);
+      console.error(`❌ Error sending message with media:`, error.message);
       throw error;
     }
   }
 
-  async getAllGroups() {
-    if (!this.isInitialized) {
-      await this.initialize();
+  /**
+   * Check if user's WhatsApp is ready
+   */
+  isWhatsAppReady(userId) {
+    if (!this.whatsappClients || !this.whatsappClients.has(userId)) {
+      return false;
     }
 
-    try {
-      const groups = await this.campaignManager.getAllGroups();
-      return groups;
-    } catch (error) {
-      console.error('Error getting groups:', error);
-      throw error;
-    }
-  }
-
-  async extractGroupMembers(groupId) {
-    if (!this.isInitialized) {
-      await this.initialize();
-    }
-
-    try {
-      const members = await this.campaignManager.extractGroupMembers(groupId);
-      return members;
-    } catch (error) {
-      console.error('Error extracting group members:', error);
-      throw error;
-    }
-  }
-
-  getBlacklist() {
-    if (!this.isInitialized) {
-      return [];
-    }
-
-    return this.campaignManager.getBlacklist();
-  }
-
-  addToBlacklist(phone, reason) {
-    if (!this.isInitialized) {
-      throw new Error('Service not initialized');
-    }
-
-    this.campaignManager.addToBlacklist(phone, reason);
-
-    return {
-      success: true,
-      message: 'Added to blacklist'
-    };
-  }
-
-  removeFromBlacklist(phone) {
-    if (!this.isInitialized) {
-      throw new Error('Service not initialized');
-    }
-
-    this.campaignManager.removeFromBlacklist(phone);
-
-    return {
-      success: true,
-      message: 'Removed from blacklist'
-    };
-  }
-
-  async destroy() {
-    if (this.campaignManager) {
-      await this.campaignManager.destroy();
-    }
-    this.isInitialized = false;
+    const userData = this.whatsappClients.get(userId);
+    return userData.isReady && userData.client;
   }
 }
 
