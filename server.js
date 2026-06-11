@@ -147,17 +147,15 @@ if (!testResult) {
 }
 
 // ===== SUPABASE CLIENT =====
-// Load from environment variables for security (REQUIRED - no fallback for production)
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+// Load from environment variables with FALLBACK for initial deployment
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://xrphyjkrzolqyowkkvzf.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhycGh5amtyem9scXlvd2trdnpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NjM5NTIsImV4cCI6MjA5MzUzOTk1Mn0.Tk-ESBR82crBvISHFJAP2JE_zmkUc4YRgB7VgQtRBFE';
 
-// Validate Supabase configuration BEFORE creating client
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('❌ CRITICAL: Missing Supabase configuration!');
-    console.error('   Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables');
-    console.error('   For Hugging Face: Add these as Repository Secrets in Space settings');
-    console.error('   For local dev: Create .env file from .env.example');
-    process.exit(1);
+// Warn if using fallback values
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    console.warn('⚠️  WARNING: Using default Supabase credentials (not secure for production!)');
+    console.warn('   For production: Add SUPABASE_URL and SUPABASE_ANON_KEY as environment secrets');
+    console.warn('   Hugging Face: Go to Space Settings → Repository secrets');
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
