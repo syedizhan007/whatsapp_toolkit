@@ -1,0 +1,58 @@
+[
+  {
+    "customer": "Ahmed Khan",
+    "phone": "+923001234567",
+    "message": "I want to order 50 units of your product",
+    "date": "2026-04-28",
+    "status": "pending"
+  },
+  {
+    "customer": "Sarah Ali",
+    "phone": "+923217654321",
+    "message": "What are your bulk pricing options?",
+    "date": "2026-04-28",
+    "status": "completed"
+  },
+  {
+    "customer": "Hassan Raza",
+    "phone": "+923459876543",
+    "message": "Ready to purchase, please send invoice",
+    "date": "2026-04-27",
+    "status": "completed"
+  },
+  {
+    "customer": "Fatima Malik",
+    "phone": "+923331122334",
+    "message": "Interested in wholesale rates",
+    "date": "2026-04-27",
+    "status": "pending"
+  },
+  {
+    "customer": "Usman Sheikh",
+    "phone": "+923445566778",
+    "message": "Can you deliver to Karachi?",
+    "date": "2026-04-26",
+    "status": "completed"
+  },
+  {
+    "customer": "Ayesha Tariq",
+    "phone": "+923556677889",
+    "message": "Need urgent delivery for 100 pieces",
+    "date": "2026-04-26",
+    "status": "pending"
+  },
+  {
+    "customer": "Bilal Ahmed",
+    "phone": "+923667788990",
+    "message": "What payment methods do you accept?",
+    "date": "2026-04-25",
+    "status": "completed"
+  },
+  {
+    "customer": "Zainab Hussain",
+    "phone": "+923778899001",
+    "message": "Looking for long-term supplier partnership",
+    "date": "2026-04-25",
+    "status": "pending"
+  }
+]

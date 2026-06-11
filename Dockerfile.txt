@@ -1,0 +1,17 @@
+FROM node:24-slim
+
+# Working directory set karo
+WORKDIR /app
+
+# Dependencies install karo
+COPY package*.json ./
+RUN npm install
+
+# Poora code copy karo
+COPY . .
+
+# Security: Port 3000 expose karo
+EXPOSE 3000
+
+# Server start karo
+CMD ["node", "server.js"]

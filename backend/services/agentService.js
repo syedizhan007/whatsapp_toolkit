@@ -90,33 +90,14 @@ class AgentService {
 
   async initializeWhatsAppClient() {
     try {
-      // Listen for QR code events from WhatsApp service
-      whatsappService.once('qr', (data) => {
-        if (data.clientId === 'ai-agent') {
-          this.currentQR = data.qr;
-          console.log('QR Code generated for AI agent');
-        }
-      });
+      // NOTE: WhatsApp clients are now managed per-user in server.js
+      // The AI agent functionality is controlled via the global aiAgentEnabled flag
+      // and uses the user's connected WhatsApp client automatically.
+      // This method is kept for compatibility but does not initialize a separate client.
 
-      // Listen for ready event to clear QR
-      whatsappService.once('ready', (data) => {
-        if (data.clientId === 'ai-agent') {
-          this.currentQR = null;
-          console.log('WhatsApp client authenticated, QR cleared');
-        }
-      });
-
-      const client = await whatsappService.initializeClient(
-        'ai-agent',
-        process.env.AI_AGENT_SESSION_PATH || './.wwebjs_auth_agent'
-      );
-
-      console.log('WhatsApp client initialized successfully');
+      console.log('✓ AI agent uses per-user WhatsApp clients managed by server.js');
+      console.log('✓ No separate WhatsApp client initialization required');
     } catch (error) {
-      // Handle specific browser lock error
-      if (error.message && error.message.includes('browser is already running')) {
-        throw new Error('WhatsApp session is already active. Please stop any running WhatsApp instances first.');
-      }
       throw new Error('Failed to start agent: ' + (error.message || 'Unknown error'));
     }
   }
@@ -130,13 +111,8 @@ class AgentService {
     }
 
     try {
-      // Try to destroy the AI agent WhatsApp client
-      try {
-        await whatsappService.destroyClient('ai-agent');
-      } catch (destroyError) {
-        console.log('Warning: Could not destroy client:', destroyError.message);
-        // Continue anyway - we still want to mark as stopped
-      }
+      // NOTE: WhatsApp clients are now managed per-user in server.js
+      // No need to destroy a separate client for the AI agent
 
       this.isRunning = false;
 
@@ -158,7 +134,7 @@ class AgentService {
     return {
       isRunning: this.isRunning,
       status: this.isRunning ? 'online' : 'offline',
-      clientStatus: whatsappService.getClientStatus('ai-agent')
+      clientStatus: 'managed_per_user' // Clients are now managed per-user in server.js
     };
   }
 

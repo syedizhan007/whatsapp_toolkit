@@ -1,42 +1,58 @@
-# Dependencies
-node_modules/
-package-lock.json
-
 # Environment variables
 .env
 .env.local
 .env.*.local
 
-# Uploads
-uploads/
-*.csv
+# Node modules
+node_modules/
+backend/node_modules/
 
-# WhatsApp sessions
-.wwebjs_auth*/
-.wwebjs_cache/
-
-# Database
-*.db
-*.db-shm
-*.db-wal
-
-# Deals and logs
-deals.json
-deals.csv
+# Logs
+server.log
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# Database files
+campaigns.db
+*.db
+*.sqlite
+*.sqlite3
+
+# WhatsApp session data
+.baileys_auth/
+.wwebjs_auth/
+backend/.wwebjs_auth/
+backend/.wwebjs_auth_agent/
+contacts_cache.json
 
 # OS files
 .DS_Store
 Thumbs.db
-desktop.ini
-
-# IDE
-.vscode/
-.idea/
 *.swp
 *.swo
 *~
 
-# Build outputs
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build artifacts
 dist/
 build/
+coverage/
+
+# Uploads directory (if it contains user data)
+uploads/*
+!uploads/.gitkeep
+backend/uploads/*
+!backend/uploads/.gitkeep

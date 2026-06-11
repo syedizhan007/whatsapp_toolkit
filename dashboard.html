@@ -1493,10 +1493,10 @@
 
             <div class="sidebar-footer">
                 <div class="user-profile">
-                    <div class="user-avatar">KK</div>
+                    <div class="user-avatar" id="userAvatar">KK</div>
                     <div class="user-info">
-                        <h4>User Account</h4>
-                        <p>Pro Plan</p>
+                        <h4 id="userName">User Account</h4>
+                        <p id="userEmail">Loading...</p>
                     </div>
                 </div>
                 <button class="logout-btn" onclick="handleLogout()">
@@ -1710,116 +1710,105 @@
 
                 <!-- Validator Section -->
                 <div id="validator" class="content-section">
-                    <div class="section-header">
-                        <h1>Number Validator</h1>
-                        <p>Validate WhatsApp numbers in bulk</p>
-                    </div>
-
-                    <div class="glass-card tilt-card">
+                    <!-- Live Bulk Validator Card -->
+                    <div class="glass-card tilt-card" style="margin-top: 24px;">
                         <h3 style="margin-bottom: 16px;">
-                            <i class="fas fa-upload"></i> Upload Numbers
+                            <i class="fas fa-tower-broadcast" style="color: var(--success);"></i> Live WhatsApp Bulk Validator
                         </h3>
-                        <input type="file" id="numbersFile" accept=".csv" style="margin-bottom: 16px; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white; width: 100%;">
-                        <button class="btn btn-primary" onclick="startValidation()">
-                            <i class="fas fa-play"></i> Start Validation
+                        <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 20px;">
+                            Upload a CSV/Excel file with phone numbers. We'll validate each number in real-time using WhatsApp's API with rate limiting to avoid bans.
+                        </p>
+
+                        <!-- File Upload -->
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 13px;">
+                                <i class="fas fa-file-csv"></i> Upload Numbers File (CSV or Excel)
+                            </label>
+                            <input type="file" id="liveValidatorFile" accept=".csv,.xlsx,.xls" style="padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; color: white; width: 100%;">
+                        </div>
+
+                        <button id="startLiveValidationBtn" class="btn btn-primary" onclick="startLiveValidation()" style="width: 100%;">
+                            <i class="fas fa-play"></i> Start Live Validation
                         </button>
 
-                        <div style="margin-top: 24px;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                <span><i class="fas fa-spinner fa-spin"></i> Scanning Progress</span>
-                                <span id="validationProgress" style="color: var(--primary); font-weight: bold;">0%</span>
+                        <!-- Progress Container -->
+                        <div id="liveValidatorProgress" style="display: none; margin-top: 24px;">
+                            <!-- Status Text -->
+                            <div style="text-align: center; margin-bottom: 16px;">
+                                <div style="font-size: 14px; color: var(--primary); font-weight: 600;">
+                                    <i class="fas fa-spinner fa-spin"></i> <span id="liveValidatorStatus">Validating numbers...</span>
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                    Current: <span id="liveValidatorCurrent">-</span>
+                                </div>
                             </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="validationBar" style="width: 0%"></div>
-                            </div>
-                        </div>
 
-                        <!-- Validation Summary -->
-                        <div id="validationSummary" style="display: none; margin-top: 24px; padding: 20px; background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(124, 58, 237, 0.1)); border-radius: 12px; border: 2px solid var(--primary);">
-                            <div style="text-align: center; font-size: 24px; font-weight: bold; color: var(--primary); margin-bottom: 12px;">
-                                <i class="fas fa-chart-pie"></i> Validation Summary
-                            </div>
-                            <div style="display: flex; justify-content: center; gap: 40px; font-size: 20px; font-weight: 600;">
-                                <div style="color: var(--success);">
-                                    <i class="fas fa-check-circle"></i> <span id="summaryValid">0</span> Valid
+                            <!-- Progress Bar -->
+                            <div style="margin-bottom: 20px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <span style="font-size: 13px;">Progress</span>
+                                    <span id="liveValidatorPercent" style="color: var(--primary); font-weight: 600;">0%</span>
                                 </div>
-                                <div style="color: var(--text-secondary);">|</div>
-                                <div style="color: var(--danger);">
-                                    <i class="fas fa-times-circle"></i> <span id="summaryInvalid">0</span> Invalid
+                                <div class="progress-bar" style="height: 24px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; overflow: hidden;">
+                                    <div id="liveValidatorBar" class="progress-fill" style="width: 0%; height: 100%; transition: width 0.3s ease;"></div>
                                 </div>
                             </div>
-                            <div style="text-align: center; margin-top: 12px; font-size: 13px; color: var(--text-secondary);">
-                                <i class="fas fa-info-circle"></i> Strict Pakistani Mobile Format: 03XXXXXXXXX (11 digits)
-                            </div>
-                        </div>
 
-                        <!-- Large Glowing Counters -->
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 32px;">
-                            <div class="large-counter">
-                                <div class="large-counter-value">
-                                    <div class="glow-counter" style="color: var(--success);" id="validCount">0</div>
-                                    <div style="color: var(--text-secondary); font-size: 14px; margin-top: 8px;">
-                                        <i class="fas fa-check-circle"></i> Valid Numbers
-                                    </div>
+                            <!-- Stats Grid / Live Monitor -->
+                            <div id="liveMonitor" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                                <div style="text-align: center; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+                                    <div style="font-size: 24px; font-weight: 700; color: var(--success);" id="liveValidCount">0</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">✓ Valid</div>
                                 </div>
-                            </div>
-                            <div class="large-counter">
-                                <div class="large-counter-value">
-                                    <div class="glow-counter" style="color: var(--danger);" id="invalidCount">0</div>
-                                    <div style="color: var(--text-secondary); font-size: 14px; margin-top: 8px;">
-                                        <i class="fas fa-times-circle"></i> Invalid Numbers
-                                    </div>
+                                <div style="text-align: center; padding: 12px; background: rgba(239, 68, 68, 0.1); border-radius: 8px;">
+                                    <div style="font-size: 24px; font-weight: 700; color: var(--danger);" id="liveInvalidCount">0</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">✗ Invalid</div>
                                 </div>
-                            </div>
-                            <div class="large-counter">
-                                <div class="large-counter-value">
-                                    <div class="glow-counter" style="color: var(--primary);" id="totalCount">0</div>
-                                    <div style="color: var(--text-secondary); font-size: 14px; margin-top: 8px;">
-                                        <i class="fas fa-list"></i> Total Scanned
-                                    </div>
+                                <div style="text-align: center; padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
+                                    <div style="font-size: 24px; font-weight: 700; color: var(--warning);" id="liveProcessedCount">0</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">⏳ Processed</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Smart Export Buttons -->
-                        <div id="exportValidationButtons" style="display: none; margin-top: 24px; padding: 16px; background: rgba(0, 0, 0, 0.3); border-radius: 12px; border: 1px solid var(--glass-border);">
-                            <div style="text-align: center; margin-bottom: 12px; color: var(--primary); font-weight: 600;">
-                                <i class="fas fa-download"></i> Smart Export Options
+                        <!-- Results Container -->
+                        <div id="liveValidatorResults" style="display: none; margin-top: 24px;">
+                            <div style="padding: 16px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3); margin-bottom: 16px;">
+                                <div style="text-align: center; margin-bottom: 12px;">
+                                    <i class="fas fa-check-circle" style="font-size: 32px; color: var(--success);"></i>
+                                    <h4 style="margin-top: 8px; color: var(--success);">Validation Complete!</h4>
+                                </div>
+                                <div style="display: flex; justify-content: center; gap: 24px; font-size: 16px;">
+                                    <span><strong id="finalValidCount">0</strong> Valid</span>
+                                    <span style="color: var(--text-secondary);">|</span>
+                                    <span><strong id="finalInvalidCount">0</strong> Invalid</span>
+                                    <span style="color: var(--text-secondary);">|</span>
+                                    <span><strong id="finalTotalCount">0</strong> Total</span>
+                                </div>
                             </div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
-                                <button class="btn btn-success" onclick="exportFilteredResults('valid')" style="width: 100%;">
-                                    <i class="fas fa-check-circle"></i> Export Valid Only
-                                </button>
-                                <button class="btn btn-danger" onclick="exportFilteredResults('invalid')" style="width: 100%;">
-                                    <i class="fas fa-times-circle"></i> Export Invalid Only
-                                </button>
-                                <button class="btn btn-primary" onclick="exportFilteredResults('both')" style="width: 100%;">
-                                    <i class="fas fa-file-export"></i> Export Both
-                                </button>
-                            </div>
-                        </div>
 
-                        <div class="table-container" style="margin-top: 32px;">
-                            <h4 style="margin-bottom: 16px; color: var(--primary);">
-                                <i class="fas fa-table"></i> Validation Results
-                            </h4>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th><i class="fas fa-hashtag"></i> Number</th>
-                                        <th><i class="fas fa-info-circle"></i> Status</th>
-                                        <th><i class="fas fa-clock"></i> Timestamp</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="validationResults">
-                                    <tr>
-                                        <td colspan="3" style="text-align: center; color: var(--text-secondary); padding: 32px;">
-                                            <i class="fas fa-inbox" style="font-size: 48px; opacity: 0.3; display: block; margin-bottom: 16px;"></i>
-                                            No validation results yet. Upload a CSV file to begin.
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                            <!-- Export Buttons Grid -->
+                            <div id="exportButtons" style="display: none; margin-top: 16px; padding: 16px; background: rgba(0, 0, 0, 0.3); border-radius: 12px; border: 1px solid var(--glass-border);">
+                                <div style="text-align: center; margin-bottom: 12px; color: var(--primary); font-weight: 600;">
+                                    <i class="fas fa-download"></i> Export Options
+                                </div>
+                                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+                                    <!-- Valid Exports -->
+                                    <button class="btn btn-success" onclick="exportData('valid', 'csv')" style="font-size: 13px;">
+                                        <i class="fas fa-file-csv"></i> Valid as CSV
+                                    </button>
+                                    <button class="btn btn-success" onclick="exportData('valid', 'excel')" style="font-size: 13px;">
+                                        <i class="fas fa-file-excel"></i> Valid as Excel
+                                    </button>
+                                    <!-- Invalid Exports -->
+                                    <button class="btn btn-danger" onclick="exportData('invalid', 'csv')" style="font-size: 13px;">
+                                        <i class="fas fa-file-csv"></i> Invalid as CSV
+                                    </button>
+                                    <button class="btn btn-danger" onclick="exportData('invalid', 'excel')" style="font-size: 13px;">
+                                        <i class="fas fa-file-excel"></i> Invalid as Excel
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1984,19 +1973,81 @@
                                         <th><i class="fas fa-signal"></i> Status</th>
                                         <th><i class="fas fa-check"></i> Sent</th>
                                         <th><i class="fas fa-times"></i> Failed</th>
-                                        <th><i class="fas fa-hourglass"></i> Pending</th>
                                         <th><i class="fas fa-cog"></i> Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="campaignsTableBody">
                                     <tr>
-                                        <td colspan="6" style="text-align: center; padding: 32px;">
+                                        <td colspan="5" style="text-align: center; padding: 32px;">
                                             <div class="spinner"></div>
                                             <div style="color: var(--text-secondary); margin-top: 16px;">Loading campaigns...</div>
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <!-- Live Campaign Activity Monitor -->
+                    <div class="glass-card tilt-card" id="liveActivityMonitor" style="margin-top: 24px; display: none;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <h3>
+                                <i class="fas fa-tower-broadcast" style="color: var(--success);"></i> Live Activity Monitor
+                            </h3>
+                            <button onclick="clearActivityLog()" style="padding: 6px 12px; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 6px; color: var(--danger); cursor: pointer; font-size: 12px;">
+                                <i class="fas fa-trash"></i> Clear Log
+                            </button>
+                        </div>
+
+                        <!-- Campaign Progress Bar -->
+                        <div id="liveProgressContainer" style="margin-bottom: 20px; padding: 16px; background: rgba(0, 212, 255, 0.05); border-radius: 8px; border: 1px solid rgba(0, 212, 255, 0.2);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <span style="font-weight: 600; font-size: 14px;">Campaign: <span id="liveCampaignName">-</span></span>
+                                <span id="liveProgressPercent" style="font-weight: 600; color: var(--primary);">0%</span>
+                            </div>
+
+                            <div class="progress-bar" style="height: 24px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; overflow: hidden; position: relative;">
+                                <div id="liveProgressFill" class="progress-fill" style="width: 0%; height: 100%; transition: width 0.3s ease;"></div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 12px;">
+                                <div style="text-align: center; padding: 8px; background: rgba(16, 185, 129, 0.1); border-radius: 6px;">
+                                    <div style="font-size: 20px; font-weight: 700; color: var(--success);" id="liveSentCount">0</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">✓ Sent</div>
+                                </div>
+                                <div style="text-align: center; padding: 8px; background: rgba(239, 68, 68, 0.1); border-radius: 6px;">
+                                    <div style="font-size: 20px; font-weight: 700; color: var(--danger);" id="liveFailedCount">0</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">✗ Failed</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Activity Log Table -->
+                        <div style="margin-top: 20px;">
+                            <h4 style="margin-bottom: 12px; color: var(--text-secondary); font-size: 13px;">
+                                <i class="fas fa-stream"></i> Recent Activity
+                            </h4>
+                            <div id="activityLogContainer" style="max-height: 400px; overflow-y: auto; background: rgba(0, 0, 0, 0.2); border-radius: 8px; border: 1px solid var(--glass-border);">
+                                <table style="width: 100%; font-size: 13px;">
+                                    <thead style="position: sticky; top: 0; background: rgba(15, 23, 42, 0.95); z-index: 1;">
+                                        <tr>
+                                            <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--glass-border);">Time</th>
+                                            <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--glass-border);">Contact</th>
+                                            <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--glass-border);">Phone</th>
+                                            <th style="padding: 10px; text-align: center; border-bottom: 1px solid var(--glass-border);">Status</th>
+                                            <th style="padding: 10px; text-align: left; border-bottom: 1px solid var(--glass-border);">Error</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activityLogBody">
+                                        <tr>
+                                            <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                                <i class="fas fa-clock" style="font-size: 32px; opacity: 0.3; display: block; margin-bottom: 12px;"></i>
+                                                Waiting for campaign activity...
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2275,14 +2326,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                                 </div>
                             </div>
                         </div>
-                        <div class="large-counter">
-                            <div class="large-counter-value">
-                                <div class="glow-counter" style="color: var(--warning);" id="pendingDealsCount">0</div>
-                                <div style="color: var(--text-secondary); font-size: 14px; margin-top: 8px;">
-                                    <i class="fas fa-hourglass-half"></i> Pending
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     <div class="glass-card tilt-card">
@@ -2305,7 +2348,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                             <select id="dealsStatusFilter" onchange="filterDeals()" style="padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 6px; color: white;">
                                 <option value="all">All Status</option>
                                 <option value="new">New Only</option>
-                                <option value="pending">Pending Only</option>
                             </select>
                             <input type="text" placeholder="Search by name or phone..." style="flex: 1; min-width: 200px; padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 6px; color: white;">
                         </div>
@@ -2405,24 +2447,56 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             console.log('✓ Required libraries loaded (Socket.IO, Supabase)');
 
             // ===== SUPABASE AUTHENTICATION =====
-            const supabase = window.supabase.createClient(
-                'https://xrphyjkrzolqyowkkvzf.supabase.co',
-                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhycGh5amtyem9scXlvd2trdnpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NjM5NTIsImV4cCI6MjA5MzUzOTk1Mn0.Tk-ESBR82crBvISHFJAP2JE_zmkUc4YRgB7VgQtRBFE',
-                {
-                    auth: {
-                        persistSession: true,
-                        detectSessionInUrl: true,
-                        autoRefreshToken: true,
-                        storage: window.localStorage
-                    }
-                }
-            );
+            // Fetch Supabase configuration securely from server
+            let supabase = null;
 
-            console.log('✓ Supabase client initialized with session persistence');
+            async function initializeSupabase() {
+                try {
+                    console.log('🔐 Fetching Supabase configuration from server...');
+
+                    const configResponse = await fetch('/api/config');
+                    if (!configResponse.ok) {
+                        throw new Error('Failed to fetch configuration from server');
+                    }
+
+                    const config = await configResponse.json();
+
+                    if (!config.success || !config.supabaseUrl || !config.supabaseAnonKey) {
+                        throw new Error('Invalid configuration received from server');
+                    }
+
+                    console.log('✓ Configuration received from server');
+
+                    // Initialize Supabase client with server-provided config
+                    supabase = window.supabase.createClient(
+                        config.supabaseUrl,
+                        config.supabaseAnonKey,
+                        {
+                            auth: {
+                                persistSession: true,
+                                detectSessionInUrl: true,
+                                autoRefreshToken: true,
+                                storage: window.localStorage
+                            }
+                        }
+                    );
+
+                    console.log('✓ Supabase client initialized securely with session persistence');
+                    return true;
+
+                } catch (error) {
+                    console.error('❌ Failed to initialize Supabase:', error);
+                    alert('Failed to initialize application. Please refresh the page or contact support.');
+                    return false;
+                }
+            }
 
             // ===== API HELPER FUNCTIONS WITH AUTO-USERID =====
             // These functions automatically include userId in all API calls
             async function apiGet(endpoint) {
+                if (!supabase) {
+                    throw new Error('Supabase not initialized');
+                }
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
                     console.error('❌ No authenticated user for API call');
@@ -2433,6 +2507,9 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             }
 
             async function apiPost(endpoint, data = {}) {
+                if (!supabase) {
+                    throw new Error('Supabase not initialized');
+                }
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
                     console.error('❌ No authenticated user for API call');
@@ -2446,6 +2523,9 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             }
 
             async function apiPut(endpoint, data = {}) {
+                if (!supabase) {
+                    throw new Error('Supabase not initialized');
+                }
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
                     console.error('❌ No authenticated user for API call');
@@ -2459,6 +2539,9 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             }
 
             async function apiDelete(endpoint) {
+                if (!supabase) {
+                    throw new Error('Supabase not initialized');
+                }
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
                     console.error('❌ No authenticated user for API call');
@@ -2471,6 +2554,76 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             }
 
             console.log('✓ API helper functions loaded with automatic userId injection');
+
+            // ===== LOAD USER PROFILE INFORMATION =====
+            async function loadUserProfile() {
+                try {
+                    console.log('👤 Loading user profile...');
+
+                    const { data: { user }, error } = await supabase.auth.getUser();
+
+                    if (error || !user) {
+                        console.error('❌ Failed to get user:', error);
+                        return;
+                    }
+
+                    console.log('✓ User loaded:', user);
+
+                    // Extract user information
+                    const email = user.email || 'No Email';
+                    const userMetadata = user.user_metadata || {};
+                    const fullName = userMetadata.full_name || userMetadata.name || null;
+
+                    // Update sidebar elements
+                    const userAvatarEl = document.getElementById('userAvatar');
+                    const userNameEl = document.getElementById('userName');
+                    const userEmailEl = document.getElementById('userEmail');
+
+                    // Generate initials for avatar
+                    let initials = 'U';
+                    if (fullName) {
+                        // Extract initials from full name
+                        const nameParts = fullName.trim().split(' ');
+                        if (nameParts.length >= 2) {
+                            initials = nameParts[0].charAt(0).toUpperCase() + nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+                        } else if (nameParts.length === 1) {
+                            initials = nameParts[0].substring(0, 2).toUpperCase();
+                        }
+                    } else if (email && email !== 'No Email') {
+                        // Generate initials from email
+                        const emailPrefix = email.split('@')[0];
+                        if (emailPrefix.length >= 2) {
+                            initials = emailPrefix.substring(0, 2).toUpperCase();
+                        } else {
+                            initials = emailPrefix.charAt(0).toUpperCase();
+                        }
+                    }
+
+                    // Update avatar
+                    if (userAvatarEl) {
+                        userAvatarEl.textContent = initials;
+                        console.log('✓ User avatar updated:', initials);
+                    }
+
+                    // Update name
+                    if (userNameEl) {
+                        userNameEl.textContent = fullName || email.split('@')[0] || 'User';
+                        console.log('✓ User name updated:', userNameEl.textContent);
+                    }
+
+                    // Update email
+                    if (userEmailEl) {
+                        userEmailEl.textContent = email;
+                        console.log('✓ User email updated:', email);
+                    }
+
+                    console.log('✅ User profile loaded successfully');
+
+                } catch (error) {
+                    console.error('❌ Error loading user profile:', error);
+                    // Keep default values on error
+                }
+            }
 
             // ===== WHATSAPP CONNECTION MANAGEMENT =====
             let socket = null;
@@ -2545,6 +2698,9 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                     console.log('✅ WhatsApp ready:', data);
                     showConnectedState(data.info);
                     updateWhatsAppStatus(true, data.info);
+
+                    // Start connection health check
+                    startConnectionHealthCheck();
                 });
 
                 // Authenticated Event
@@ -2563,7 +2719,15 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 socket.on('whatsapp:disconnected', (data) => {
                     console.log('🔌 WhatsApp disconnected:', data.reason);
                     updateWhatsAppStatus(false, null);
-                    showLoadingState('Reconnecting...');
+                    showLoadingState('Connection lost. Attempting to reconnect...');
+
+                    // Stop health check
+                    stopConnectionHealthCheck();
+
+                    // Trigger auto-reconnect
+                    setTimeout(() => {
+                        autoReconnect();
+                    }, 2000); // Wait 2 seconds before reconnecting
                 });
 
                 // Loading Event
@@ -2689,6 +2853,23 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                     updateCampaignPaused(data);
                     showNotification('Campaign paused', 'info');
                 });
+
+                // ===== LIVE CAMPAIGN ACTIVITY MONITOR =====
+                socket.on('campaign-update', (data) => {
+                    console.log('📡 Live campaign update:', data);
+                    updateLiveActivityMonitor(data);
+                });
+
+                // ===== LIVE VALIDATOR EVENTS =====
+                socket.on('validator:progress', (data) => {
+                    console.log('📊 Validator progress:', data);
+                    updateLiveValidatorProgress(data);
+                });
+
+                socket.on('validator:complete', (data) => {
+                    console.log('✅ Validator complete:', data);
+                    updateLiveValidatorComplete(data);
+                });
             }
 
             // Check current WhatsApp connection status
@@ -2705,14 +2886,21 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                         console.log('✅ WhatsApp is already connected');
                         showConnectedState(data.info);
                         updateWhatsAppStatus(true, data.info);
+
+                        // Start connection health check
+                        startConnectionHealthCheck();
                     } else {
                         // Not connected - show loading/QR state
                         console.log('⏳ WhatsApp not connected, waiting for QR or connection...');
                         showLoadingState('Initializing WhatsApp...');
+
+                        // Stop health check if running
+                        stopConnectionHealthCheck();
                     }
                 } catch (error) {
                     console.error('❌ Failed to check WhatsApp status:', error);
                     showLoadingState('Connecting to server...');
+                    stopConnectionHealthCheck();
                 }
             }
 
@@ -2723,6 +2911,7 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 const statusEl = document.getElementById('whatsapp-status');
                 const statusBadge = document.getElementById('connection-status-badge');
                 const profileEl = document.getElementById('whatsapp-profile');
+                const statusText = document.querySelector('.status-text'); // Sidebar status text
 
                 if (!statusEl || !statusBadge) return;
 
@@ -2733,6 +2922,12 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                     statusEl.className = 'whatsapp-status connected';
                     statusBadge.className = 'status-badge connected';
                     statusBadge.innerHTML = '<i class="fas fa-circle"></i><span>Connected</span>';
+
+                    // Update sidebar status text
+                    if (statusText) {
+                        statusText.textContent = 'Connected';
+                        console.log('✓ Sidebar status text updated to "Connected"');
+                    }
 
                     // Show profile info
                     if (profileEl) {
@@ -2802,6 +2997,12 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                     statusEl.className = 'whatsapp-status disconnected';
                     statusBadge.className = 'status-badge disconnected';
                     statusBadge.innerHTML = '<i class="fas fa-circle"></i><span>Disconnected</span>';
+
+                    // Update sidebar status text
+                    if (statusText) {
+                        statusText.textContent = 'Disconnected';
+                        console.log('✓ Sidebar status text updated to "Disconnected"');
+                    }
 
                     if (profileEl) {
                         profileEl.style.display = 'none';
@@ -2986,6 +3187,153 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 });
             }
 
+            // ===== CONNECTION VERIFICATION & AUTO-RECONNECT =====
+            let connectionCheckInterval = null;
+            let isReconnecting = false;
+
+            // Start periodic connection health check
+            function startConnectionHealthCheck() {
+                // Clear existing interval if any
+                if (connectionCheckInterval) {
+                    clearInterval(connectionCheckInterval);
+                }
+
+                // Check connection every 30 seconds
+                connectionCheckInterval = setInterval(async () => {
+                    if (!whatsappConnected || isReconnecting) {
+                        return; // Skip if already disconnected or reconnecting
+                    }
+
+                    console.log('🔍 Running periodic connection health check...');
+                    await verifyConnection();
+                }, 30000); // 30 seconds
+
+                console.log('✓ Connection health check started (30s interval)');
+            }
+
+            // Stop connection health check
+            function stopConnectionHealthCheck() {
+                if (connectionCheckInterval) {
+                    clearInterval(connectionCheckInterval);
+                    connectionCheckInterval = null;
+                    console.log('✓ Connection health check stopped');
+                }
+            }
+
+            // Verify WhatsApp connection state
+            async function verifyConnection() {
+                try {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    const userId = user?.id || 'dashboard-user-' + Date.now();
+
+                    const response = await fetch('/api/whatsapp/verify-connection', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.connected) {
+                        console.log('✅ Connection verified - all good');
+
+                        // Update status if it was showing disconnected
+                        if (!whatsappConnected) {
+                            updateWhatsAppStatus(true, result.info);
+                            showConnectedState(result.info);
+                        }
+
+                        return true;
+                    } else {
+                        console.warn('⚠️ Connection verification failed:', result.message);
+
+                        // Update UI to disconnected
+                        updateWhatsAppStatus(false, null);
+
+                        // Trigger auto-reconnect if action is 'reconnect'
+                        if (result.action === 'reconnect') {
+                            console.log('🔄 Auto-reconnect triggered...');
+                            await autoReconnect();
+                        }
+
+                        return false;
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error verifying connection:', error);
+                    return false;
+                }
+            }
+
+            // Auto-reconnect logic
+            async function autoReconnect() {
+                if (isReconnecting) {
+                    console.log('⚠️ Already reconnecting, skipping...');
+                    return;
+                }
+
+                isReconnecting = true;
+
+                try {
+                    console.log('🔄 Starting auto-reconnect...');
+
+                    // Show loading state
+                    showLoadingState('Connection lost. Attempting to reconnect...');
+
+                    showNotification('Connection lost. Attempting to reconnect...', 'warning');
+
+                    const { data: { user } } = await supabase.auth.getUser();
+                    const userId = user?.id || 'dashboard-user-' + Date.now();
+
+                    const response = await fetch('/api/whatsapp/reconnect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        console.log('✅ Reconnection initiated successfully');
+                        showNotification('Reconnecting to WhatsApp...', 'info');
+                        // The socket events will handle showing QR code or connected state
+                    } else {
+                        console.error('❌ Reconnection failed:', result.message);
+                        showErrorState('Reconnection failed: ' + result.message, true);
+                        showNotification('Reconnection failed. Please try manually.', 'error');
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error during auto-reconnect:', error);
+                    showErrorState('Auto-reconnect error: ' + error.message, true);
+                    showNotification('Auto-reconnect failed. Please try manually.', 'error');
+                } finally {
+                    isReconnecting = false;
+                }
+            }
+
+            // Manual reconnect button handler
+            window.reconnectWhatsApp = async function() {
+                console.log('🔄 Manual reconnect requested...');
+
+                const btn = document.getElementById('retry-connection-btn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Reconnecting...';
+                }
+
+                await autoReconnect();
+
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-redo"></i> Reconnect';
+                }
+            }
+
+            // Expose verification function globally
+            window.verifyConnection = verifyConnection;
+            window.autoReconnect = autoReconnect;
+
             // Disconnect WhatsApp
             window.disconnectWhatsApp = async function() {
                 if (!confirm('Are you sure you want to disconnect WhatsApp? You will need to scan the QR code again.')) {
@@ -3023,8 +3371,66 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 }
             };
 
-            // Initialize Socket.IO when page loads
-            initializeSocketIO();
+            // Initialize dashboard with proper async sequence
+            (async function initializeDashboard() {
+                console.log('🚀 Initializing dashboard...');
+
+                try {
+                    // Step 1: Initialize Supabase configuration from server
+                    console.log('📋 Step 1: Initializing Supabase...');
+                    const supabaseReady = await initializeSupabase();
+                    if (!supabaseReady) {
+                        console.error('❌ Failed to initialize Supabase - stopping initialization');
+                        return;
+                    }
+                    console.log('✓ Supabase initialized successfully');
+
+                    // Step 2: Load user profile (depends on Supabase)
+                    console.log('📋 Step 2: Loading user profile...');
+                    await loadUserProfile();
+                    console.log('✓ User profile loaded');
+
+                    // Step 3: Load all data in parallel (all depend on Supabase)
+                    console.log('📋 Step 3: Loading all data in parallel...');
+                    await Promise.all([
+                        fetchDashboardStats().catch(err => console.warn('⚠️ Failed to fetch dashboard stats:', err)),
+                        loadProducts().catch(err => console.warn('⚠️ Failed to load products:', err)),
+                        loadMedia().catch(err => console.warn('⚠️ Failed to load media:', err)),
+                        loadDeals(1).catch(err => console.warn('⚠️ Failed to load deals:', err)),
+                        loadCampaigns().catch(err => console.warn('⚠️ Failed to load campaigns:', err)),
+                        loadBlacklist().catch(err => console.warn('⚠️ Failed to load blacklist:', err)),
+                        loadMessageHistory().catch(err => console.warn('⚠️ Failed to load message history:', err)),
+                        fetchAIAgentStatus().catch(err => console.warn('⚠️ Failed to fetch AI agent status:', err)),
+                        loadBusinessConfig().catch(err => console.warn('⚠️ Failed to load business config:', err)),
+                        Promise.resolve(loadExtractionMemory()) // Local storage, synchronous but wrapped for consistency
+                    ]);
+                    console.log('✓ All data loaded successfully');
+
+                    // Step 4: Initialize Socket.IO (after all data is loaded)
+                    console.log('📋 Step 4: Initializing Socket.IO...');
+                    await initializeSocketIO();
+                    console.log('✓ Socket.IO initialized');
+
+                    // Step 5: Set up auto-refresh interval (after everything is initialized)
+                    console.log('📋 Step 5: Setting up auto-refresh...');
+                    setInterval(() => {
+                        if (supabase) { // Only refresh if Supabase is still available
+                            fetchDashboardStats().catch(err => console.warn('⚠️ Auto-refresh failed for dashboard stats:', err));
+                            loadDeals().catch(err => console.warn('⚠️ Auto-refresh failed for deals:', err));
+                            loadProducts().catch(err => console.warn('⚠️ Auto-refresh failed for products:', err));
+                            loadMedia().catch(err => console.warn('⚠️ Auto-refresh failed for media:', err));
+                            loadCampaigns().catch(err => console.warn('⚠️ Auto-refresh failed for campaigns:', err));
+                        }
+                    }, 10000); // Refresh every 10 seconds
+                    console.log('✓ Auto-refresh enabled (10s interval)');
+
+                    console.log('✅ Dashboard initialization complete');
+
+                } catch (error) {
+                    console.error('❌ Critical error during dashboard initialization:', error);
+                    alert('Failed to initialize dashboard. Please refresh the page or contact support.');
+                }
+            })();
 
             console.log('✓ WhatsApp connection management initialized');
 
@@ -3279,12 +3685,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                             backgroundColor: 'rgba(239, 68, 68, 0.8)',
                             borderColor: '#ef4444',
                             borderWidth: 1
-                        }, {
-                            label: 'Pending',
-                            data: [],
-                            backgroundColor: 'rgba(245, 158, 11, 0.8)',
-                            borderColor: '#f59e0b',
-                            borderWidth: 1
                         }]
                     },
                     options: {
@@ -3316,12 +3716,11 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 dealsChart = new Chart(dealsCtx, {
                     type: 'doughnut',
                     data: {
-                        labels: ['New', 'Pending'],
+                        labels: ['New'],
                         datasets: [{
-                            data: [0, 0],
+                            data: [0],
                             backgroundColor: [
-                                '#00d4ff',
-                                '#f59e0b'
+                                '#00d4ff'  // New - cyan
                             ],
                             borderWidth: 0
                         }]
@@ -3350,7 +3749,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             campaignChart.data.labels = topCampaigns.map(c => c.name || 'Unnamed');
             campaignChart.data.datasets[0].data = topCampaigns.map(c => c.sent || 0);
             campaignChart.data.datasets[1].data = topCampaigns.map(c => c.failed || 0);
-            campaignChart.data.datasets[2].data = topCampaigns.map(c => c.pending || 0);
             campaignChart.update();
         }
 
@@ -3360,8 +3758,7 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
 
             const breakdown = stats.dealsBreakdown;
             dealsChart.data.datasets[0].data = [
-                breakdown.new || 0,
-                breakdown.pending || 0
+                breakdown.new || 0
             ];
             dealsChart.update();
         }
@@ -3581,14 +3978,21 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             const invalid = Math.max(0, validationStats.invalid);
             const total = Math.max(0, validationStats.total);
 
-            // Update validator page counters
-            document.getElementById('validCount').textContent = valid;
-            document.getElementById('invalidCount').textContent = invalid;
-            document.getElementById('totalCount').textContent = total;
+            // Update validator page counters (with null checks)
+            const validCountEl = document.getElementById('validCount');
+            const invalidCountEl = document.getElementById('invalidCount');
+            const totalCountEl = document.getElementById('totalCount');
 
-            // Update summary display
-            document.getElementById('summaryValid').textContent = valid;
-            document.getElementById('summaryInvalid').textContent = invalid;
+            if (validCountEl) validCountEl.textContent = valid;
+            if (invalidCountEl) invalidCountEl.textContent = invalid;
+            if (totalCountEl) totalCountEl.textContent = total;
+
+            // Update summary display (with null checks)
+            const summaryValidEl = document.getElementById('summaryValid');
+            const summaryInvalidEl = document.getElementById('summaryInvalid');
+
+            if (summaryValidEl) summaryValidEl.textContent = valid;
+            if (summaryInvalidEl) summaryInvalidEl.textContent = invalid;
 
             // Update dashboard overview counter directly (no animation during validation)
             const dashboardElement = document.getElementById('validNumbers');
@@ -3754,7 +4158,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                         <td><span class="badge ${statusBadgeClass}">${campaign.status}</span></td>
                         <td><strong style="color: var(--success);">${campaign.sent}</strong></td>
                         <td><strong style="color: var(--danger);">${campaign.failed}</strong></td>
-                        <td><strong style="color: var(--warning);">${campaign.pending}</strong></td>
                         <td>
                             <div style="display: flex; gap: 4px;">
                                 ${actionButtons}
@@ -4832,6 +5235,9 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             `;
 
             dealsContainer.insertBefore(dealCard, dealsContainer.firstChild);
+
+            // Reload deals to update summary cards and table
+            loadDeals(currentDealsPage);
         }
 
         // Deals Tracker State
@@ -4866,9 +5272,12 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 if (data.success) {
                     currentDealsData = data.deals;
 
-                    // Update counters
-                    document.getElementById('totalDealsCount').textContent = data.totalDeals || 0;
-                    document.getElementById('pendingDealsCount').textContent = data.pending || 0;
+                    // Calculate stats from statusCounts returned by backend
+                    const statusCounts = data.statusCounts || { new: 0, completed: 0, cancelled: 0 };
+                    const totalDeals = statusCounts.new + statusCounts.completed + statusCounts.cancelled;
+
+                    // Update summary cards
+                    document.getElementById('totalDealsCount').textContent = totalDeals;
 
                     // Update pagination info
                     document.getElementById('dealsShowing').textContent = data.deals.length;
@@ -4880,8 +5289,7 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
 
                     if (data.deals && data.deals.length > 0) {
                         tbody.innerHTML = data.deals.map(deal => {
-                            const statusClass = deal.status === 'completed' ? 'badge-success' :
-                                              deal.status === 'pending' ? 'badge-warning' : 'badge-info';
+                            const statusClass = deal.status === 'completed' ? 'badge-success' : 'badge-info';
 
                             // FIXED: Use database column names (customer_name, customer_phone, message_text)
                             const customerName = deal.customer_name || deal.customerName || deal.name || 'Customer';
@@ -5360,7 +5768,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             if (campaign) {
                 campaign.sent = data.sent || 0;
                 campaign.failed = data.failed || 0;
-                campaign.pending = data.pending || 0;
                 renderCampaigns();
             }
         }
@@ -5372,7 +5779,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 campaign.status = 'completed';
                 campaign.sent = data.sent || 0;
                 campaign.failed = data.failed || 0;
-                campaign.pending = 0;
                 renderCampaigns();
             }
         }
@@ -5396,6 +5802,388 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                 renderCampaigns();
             }
         }
+
+        // ===== LIVE ACTIVITY MONITOR FUNCTIONS =====
+        let activityLogEntries = [];
+        const MAX_ACTIVITY_LOG_ENTRIES = 100;
+
+        function updateLiveActivityMonitor(data) {
+            // Show the monitor if hidden
+            const monitor = document.getElementById('liveActivityMonitor');
+            if (monitor) {
+                monitor.style.display = 'block';
+            }
+
+            // Update campaign name
+            const campaign = campaigns.find(c => c.id === data.campaignId);
+            if (campaign) {
+                document.getElementById('liveCampaignName').textContent = campaign.name || `Campaign #${data.campaignId}`;
+            }
+
+            // Update counters
+            const sent = data.sent || 0;
+            const failed = data.failed || 0;
+            const total = sent + failed;
+
+            document.getElementById('liveSentCount').textContent = sent;
+            document.getElementById('liveFailedCount').textContent = failed;
+
+            // Update progress bar
+            const progressPercent = total > 0 ? Math.round(((sent + failed) / total) * 100) : 0;
+            document.getElementById('liveProgressPercent').textContent = progressPercent + '%';
+            document.getElementById('liveProgressFill').style.width = progressPercent + '%';
+
+            // Add activity log entry if contact info is present
+            if (data.contactName || data.contactPhone) {
+                addActivityLogEntry({
+                    timestamp: data.timestamp || new Date().toISOString(),
+                    contactName: data.contactName || 'Unknown',
+                    contactPhone: data.contactPhone || '-',
+                    status: data.contactStatus || 'unknown',
+                    error: data.error || null
+                });
+            }
+
+            // Hide monitor if campaign is completed
+            if (data.status === 'completed') {
+                setTimeout(() => {
+                    // Keep it visible for 5 seconds after completion
+                    showNotification('Campaign completed! Activity log will remain visible.', 'success');
+                }, 1000);
+            }
+        }
+
+        function addActivityLogEntry(entry) {
+            // Add to array (newest first)
+            activityLogEntries.unshift(entry);
+
+            // Limit to MAX entries
+            if (activityLogEntries.length > MAX_ACTIVITY_LOG_ENTRIES) {
+                activityLogEntries = activityLogEntries.slice(0, MAX_ACTIVITY_LOG_ENTRIES);
+            }
+
+            // Render the table
+            renderActivityLog();
+        }
+
+        function renderActivityLog() {
+            const tbody = document.getElementById('activityLogBody');
+
+            if (activityLogEntries.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                            <i class="fas fa-clock" style="font-size: 32px; opacity: 0.3; display: block; margin-bottom: 12px;"></i>
+                            Waiting for campaign activity...
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = activityLogEntries.map(entry => {
+                const time = new Date(entry.timestamp).toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+
+                let statusBadge = '';
+                if (entry.status === 'sent') {
+                    statusBadge = '<span style="display: inline-block; padding: 4px 10px; background: rgba(16, 185, 129, 0.2); color: var(--success); border-radius: 12px; font-size: 11px; font-weight: 600;"><i class="fas fa-check-circle"></i> Sent</span>';
+                } else if (entry.status === 'failed') {
+                    statusBadge = '<span style="display: inline-block; padding: 4px 10px; background: rgba(239, 68, 68, 0.2); color: var(--danger); border-radius: 12px; font-size: 11px; font-weight: 600;"><i class="fas fa-times-circle"></i> Failed</span>';
+                } else {
+                    statusBadge = '<span style="display: inline-block; padding: 4px 10px; background: rgba(148, 163, 184, 0.2); color: var(--text-secondary); border-radius: 12px; font-size: 11px; font-weight: 600;">Unknown</span>';
+                }
+
+                const errorText = entry.error ? `<span style="color: var(--danger); font-size: 11px;">${entry.error}</span>` : '<span style="color: var(--text-secondary); font-size: 11px;">-</span>';
+
+                return `
+                    <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                        <td style="padding: 10px; color: var(--text-secondary); font-size: 12px;">${time}</td>
+                        <td style="padding: 10px; font-weight: 500;">${entry.contactName}</td>
+                        <td style="padding: 10px; color: var(--text-secondary);">${entry.contactPhone}</td>
+                        <td style="padding: 10px; text-align: center;">${statusBadge}</td>
+                        <td style="padding: 10px;">${errorText}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function clearActivityLog() {
+            if (confirm('Are you sure you want to clear the activity log?')) {
+                activityLogEntries = [];
+                renderActivityLog();
+
+                // Reset counters
+                document.getElementById('liveSentCount').textContent = '0';
+                document.getElementById('liveFailedCount').textContent = '0';
+                document.getElementById('liveProgressPercent').textContent = '0%';
+                document.getElementById('liveProgressFill').style.width = '0%';
+                document.getElementById('liveCampaignName').textContent = '-';
+
+                showNotification('Activity log cleared', 'success');
+            }
+        }
+
+        // Expose functions to global scope
+        window.updateLiveActivityMonitor = updateLiveActivityMonitor;
+        window.clearActivityLog = clearActivityLog;
+
+        // ===== LIVE VALIDATOR FUNCTIONS =====
+        let validatorResults = {
+            validNumbers: [],
+            invalidNumbers: [],
+            totalNumbers: 0
+        };
+
+        async function startLiveValidation() {
+            const fileInput = document.getElementById('liveValidatorFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                showNotification('Please select a file first', 'error');
+                return;
+            }
+
+            // Check file type
+            const fileExt = file.name.split('.').pop().toLowerCase();
+            if (!['csv', 'xlsx', 'xls'].includes(fileExt)) {
+                showNotification('Invalid file format. Please upload CSV or Excel file.', 'error');
+                return;
+            }
+
+            // Disable button during validation
+            const btn = document.getElementById('startLiveValidationBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting validation...';
+
+            try {
+                // Get userId
+                const { data: { user } } = await supabase.auth.getUser();
+                const userId = user?.id || 'dashboard-user-' + Date.now();
+
+                // Create FormData
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('userId', userId);
+
+                // Send request
+                const response = await fetch('/api/validator/bulk-validate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Validation started! Processing ${result.totalNumbers} numbers...`, 'success');
+
+                    // Show progress container
+                    document.getElementById('liveValidatorProgress').style.display = 'block';
+                    document.getElementById('liveValidatorResults').style.display = 'none';
+
+                    // Reset counters
+                    document.getElementById('liveValidCount').textContent = '0';
+                    document.getElementById('liveInvalidCount').textContent = '0';
+                    document.getElementById('liveProcessedCount').textContent = '0';
+                    document.getElementById('liveValidatorBar').style.width = '0%';
+                    document.getElementById('liveValidatorPercent').textContent = '0%';
+                    document.getElementById('liveValidatorStatus').textContent = 'Validating numbers...';
+
+                    validatorResults.totalNumbers = result.totalNumbers;
+                } else {
+                    showNotification(result.message || 'Validation failed', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-play"></i> Start Live Validation';
+                }
+
+            } catch (error) {
+                console.error('Error starting validation:', error);
+                showNotification('Error starting validation: ' + error.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Live Validation';
+            }
+        }
+
+        function updateLiveValidatorProgress(data) {
+            // Update counters
+            document.getElementById('liveValidCount').textContent = data.valid || 0;
+            document.getElementById('liveInvalidCount').textContent = data.invalid || 0;
+            document.getElementById('liveProcessedCount').textContent = data.processed || 0;
+
+            // Update progress bar
+            const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
+            document.getElementById('liveValidatorBar').style.width = percent + '%';
+            document.getElementById('liveValidatorPercent').textContent = percent + '%';
+
+            // Persist to localStorage and update global stats
+            const processedCount = data.processed || 0;
+            localStorage.setItem('dashboardTotalValidated', processedCount);
+            if (window.validationStats) {
+                window.validationStats.total = processedCount;
+            }
+
+            // Sync with Dashboard Overview card (real-time update)
+            const dashboardElement = document.getElementById('validNumbers');
+            if (dashboardElement) {
+                dashboardElement.textContent = processedCount;
+            }
+
+            // Update current number
+            if (data.currentNumber) {
+                document.getElementById('liveValidatorCurrent').textContent = data.currentNumber;
+            }
+
+            // Update status text
+            document.getElementById('liveValidatorStatus').textContent = `Validating ${data.processed}/${data.total} numbers...`;
+        }
+
+        function updateLiveValidatorComplete(data) {
+            // Store results for download
+            validatorResults.validNumbers = data.validNumbers || [];
+            validatorResults.invalidNumbers = data.invalidNumbers || [];
+
+            // Update final counters
+            document.getElementById('finalValidCount').textContent = data.valid || 0;
+            document.getElementById('finalInvalidCount').textContent = data.invalid || 0;
+            document.getElementById('finalTotalCount').textContent = data.total || 0;
+
+            // Persist to localStorage and update global stats
+            const totalValidated = data.total || 0;
+            localStorage.setItem('dashboardTotalValidated', totalValidated);
+            if (window.validationStats) {
+                window.validationStats.total = totalValidated;
+            }
+
+            // Sync with Dashboard Overview card
+            const dashboardElement = document.getElementById('validNumbers');
+            if (dashboardElement) {
+                dashboardElement.textContent = totalValidated;
+            }
+
+            // Hide progress, show results and export buttons
+            document.getElementById('liveValidatorProgress').style.display = 'none';
+            document.getElementById('liveValidatorResults').style.display = 'block';
+            document.getElementById('exportButtons').style.display = 'block';
+
+            // Re-enable button
+            const btn = document.getElementById('startLiveValidationBtn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-play"></i> Start Live Validation';
+
+            showNotification(`Validation complete! ${data.valid} valid numbers found.`, 'success');
+        }
+
+        function downloadValidLeads() {
+            if (validatorResults.validNumbers.length === 0) {
+                showNotification('No valid numbers to download', 'warning');
+                return;
+            }
+
+            // Create CSV content
+            let csvContent = 'Phone Number,Formatted,Status\n';
+
+            validatorResults.validNumbers.forEach(item => {
+                csvContent += `${item.phone},${item.formatted || item.phone},valid\n`;
+            });
+
+            // Create blob and download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', `valid_leads_${new Date().toISOString().slice(0, 10)}.csv`);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showNotification(`Downloaded ${validatorResults.validNumbers.length} valid leads!`, 'success');
+        }
+
+        // Unified export function for CSV and Excel formats
+        function exportData(category, format) {
+            const data = category === 'valid' ? validatorResults.validNumbers : validatorResults.invalidNumbers;
+
+            if (!data || data.length === 0) {
+                showNotification(`No ${category} numbers to export`, 'warning');
+                return;
+            }
+
+            const timestamp = new Date().toISOString().slice(0, 10);
+            const filename = `${category}_numbers_${timestamp}`;
+
+            if (format === 'csv') {
+                // CSV Export
+                let csvContent = 'Phone Number,Formatted,Status,Reason\n';
+                data.forEach(item => {
+                    const phone = item.phone || '';
+                    const formatted = item.formatted || item.international || item.phone || '';
+                    const status = item.status || category;
+                    const reason = item.reason || (category === 'valid' ? 'Active on WhatsApp' : 'Not on WhatsApp');
+                    csvContent += `${phone},${formatted},${status},"${reason}"\n`;
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                downloadFile(blob, `${filename}.csv`);
+                showNotification(`Exported ${data.length} ${category} numbers as CSV`, 'success');
+
+            } else if (format === 'excel') {
+                // Excel Export using SheetJS (assuming XLSX library is loaded)
+                if (typeof XLSX === 'undefined') {
+                    // Fallback to CSV if XLSX not available
+                    console.warn('XLSX library not loaded, falling back to CSV');
+                    exportData(category, 'csv');
+                    return;
+                }
+
+                const worksheetData = [
+                    ['Phone Number', 'Formatted', 'Status', 'Reason']
+                ];
+
+                data.forEach(item => {
+                    worksheetData.push([
+                        item.phone || '',
+                        item.formatted || item.international || item.phone || '',
+                        item.status || category,
+                        item.reason || (category === 'valid' ? 'Active on WhatsApp' : 'Not on WhatsApp')
+                    ]);
+                });
+
+                const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, category.charAt(0).toUpperCase() + category.slice(1));
+
+                XLSX.writeFile(workbook, `${filename}.xlsx`);
+                showNotification(`Exported ${data.length} ${category} numbers as Excel`, 'success');
+            }
+        }
+
+        // Helper function to trigger file download
+        function downloadFile(blob, filename) {
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
+        // Expose validator functions to global scope
+        window.startLiveValidation = startLiveValidation;
+        window.updateLiveValidatorProgress = updateLiveValidatorProgress;
+        window.updateLiveValidatorComplete = updateLiveValidatorComplete;
+        window.downloadValidLeads = downloadValidLeads;
+        window.exportData = exportData;
 
         // Animate stats on load
         function animateValue(id, start, end, duration) {
@@ -5441,36 +6229,27 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
         window.addEventListener('DOMContentLoaded', () => {
             initCharts();
 
-            // Initialize validator counters to 0
-            document.getElementById('validCount').textContent = '0';
-            document.getElementById('invalidCount').textContent = '0';
-            document.getElementById('totalCount').textContent = '0';
-            document.getElementById('validNumbers').textContent = '0';
+            // Initialize validator counters to 0 (with null checks)
+            const validCountEl = document.getElementById('validCount');
+            const invalidCountEl = document.getElementById('invalidCount');
+            const totalCountEl = document.getElementById('totalCount');
+            const validNumbersEl = document.getElementById('validNumbers');
 
-            // Load extraction memory from localStorage
+            if (validCountEl) validCountEl.textContent = '0';
+            if (invalidCountEl) invalidCountEl.textContent = '0';
+            if (totalCountEl) totalCountEl.textContent = '0';
+
+            // Dashboard Overview counter: restore from localStorage if available
+            if (validNumbersEl) {
+                const persistedValidated = localStorage.getItem('dashboardTotalValidated');
+                validNumbersEl.textContent = persistedValidated || '0';
+            }
+
+            // Load extraction memory from localStorage (synchronous, no Supabase needed)
             loadExtractionMemory();
 
-            // ===== LOAD REAL DATA =====
-            fetchDashboardStats(); // Fetch comprehensive dashboard stats
-            loadDeals();
-            loadMessageHistory();
-            fetchAIAgentStatus();
-            loadBusinessConfig(); // Load business instructions and payment details
-            loadProducts(); // Load products from Supabase
-            loadMedia(); // Load media gallery from Supabase
-            loadCampaigns(); // Load campaigns from backend
-
-            // Initialize blacklist display
-            loadBlacklist();
-
-            // Auto-refresh real data every 10 seconds
-            setInterval(() => {
-                fetchDashboardStats(); // Refresh comprehensive dashboard stats
-                loadDeals();
-                loadProducts(); // Refresh products
-                loadMedia(); // Refresh media gallery
-                loadCampaigns(); // Refresh campaigns
-            }, 10000);
+            // ===== ALL DATA LOADING NOW HAPPENS IN initializeDashboard() =====
+            // See initializeDashboard() function above for proper async sequencing
 
             // Add entrance animations
             document.querySelectorAll('.stat-card').forEach((card, index) => {
@@ -5928,7 +6707,6 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
                             <td><span class="badge badge-${c.status === 'active' ? 'success' : 'warning'}">${c.status}</span></td>
                             <td><strong style="color:var(--success);">${c.sent || 0}</strong></td>
                             <td><strong style="color:var(--danger);">${c.failed || 0}</strong></td>
-                            <td><strong style="color:var(--warning);">${c.pending || 0}</strong></td>
                             <td>
                                 <div style="display: flex; gap: 4px;">
                                     ${c.status === 'active' || c.status === 'processing' || c.status === 'running' ? `
@@ -6357,7 +7135,10 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
             }
 
             if (validNumbersEl) {
-                animateCounter(validNumbersEl, parseInt(validNumbersEl.textContent) || 0, stats.numbersValidated);
+                // Check localStorage first - don't overwrite with server's 0 if we have a persisted value
+                const persistedValidated = localStorage.getItem('dashboardTotalValidated');
+                const validatedCount = persistedValidated ? parseInt(persistedValidated) : stats.numbersValidated;
+                animateCounter(validNumbersEl, parseInt(validNumbersEl.textContent) || 0, validatedCount);
             }
 
             // Update campaign performance chart if it exists

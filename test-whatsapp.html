@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Test</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .status-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .qr-box {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .qr-box img {
+            max-width: 300px;
+            border: 2px solid #25D366;
+            border-radius: 8px;
+        }
+        .log {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log div {
+            margin: 5px 0;
+        }
+        h1 { color: #25D366; }
+        .connected { color: #25D366; font-weight: bold; }
+        .disconnected { color: #ff4444; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🔧 WhatsApp Client Test</h1>
+
+    <div class="status-box">
+        <h2>Status: <span id="status" class="disconnected">Initializing...</span></h2>
+        <p><strong>Socket.IO:</strong> <span id="socket-status">Connecting...</span></p>
+        <p><strong>WhatsApp:</strong> <span id="whatsapp-status">Not initialized</span></p>
+    </div>
+
+    <div class="qr-box" id="qr-container" style="display: none;">
+        <h3>📱 Scan QR Code</h3>
+        <img id="qr-image" src="" alt="QR Code">
+    </div>
+
+    <div class="status-box">
+        <h3>📋 Console Log</h3>
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        const TEST_USER_ID = 'test-user-' + Date.now();
+        let socket;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logDiv.innerHTML = `<div>${icon} [${timestamp}] ${message}</div>` + logDiv.innerHTML;
+            console.log(message);
+        }
+
+        function updateStatus(text, connected) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = text;
+            statusEl.className = connected ? 'connected' : 'disconnected';
+        }
+
+        log('🚀 Initializing test with userId: ' + TEST_USER_ID);
+
+        // Connect to Socket.IO with test userId
+        socket = io('http://localhost:3000', {
+            auth: { userId: TEST_USER_ID },
+            transports: ['websocket', 'polling']
+        });
+
+        socket.on('connect', () => {
+            log('✅ Socket.IO connected!', 'success');
+            document.getElementById('socket-status').textContent = 'Connected';
+            document.getElementById('socket-status').className = 'connected';
+            updateStatus('Socket.IO Connected', true);
+        });
+
+        socket.on('disconnect', () => {
+            log('🔌 Socket.IO disconnected', 'error');
+            document.getElementById('socket-status').textContent = 'Disconnected';
+            document.getElementById('socket-status').className = 'disconnected';
+            updateStatus('Disconnected', false);
+        });
+
+        socket.on('whatsapp:qr', (data) => {
+            log('📱 QR Code received!', 'success');
+            document.getElementById('whatsapp-status').textContent = 'QR Code Ready';
+            document.getElementById('qr-container').style.display = 'block';
+            document.getElementById('qr-image').src = data.qr;
+            updateStatus('Scan QR Code', true);
+        });
+
+        socket.on('whatsapp:ready', (data) => {
+            log('✅ WhatsApp ready! Connected as: ' + (data.info?.name || 'Unknown'), 'success');
+            document.getElementById('whatsapp-status').textContent = 'Connected';
+            document.getElementById('qr-container').style.display = 'none';
+            updateStatus('WhatsApp Connected', true);
+        });
+
+        socket.on('whatsapp:authenticated', (data) => {
+            log('🔐 WhatsApp authenticated!', 'success');
+            document.getElementById('whatsapp-status').textContent = 'Authenticated';
+            updateStatus('Authenticated', true);
+        });
+
+        socket.on('whatsapp:auth_failure', (data) => {
+            log('❌ Authentication failed: ' + data.error, 'error');
+            document.getElementById('whatsapp-status').textContent = 'Auth Failed';
+            updateStatus('Auth Failed', false);
+        });
+
+        socket.on('whatsapp:disconnected', (data) => {
+            log('🔌 WhatsApp disconnected: ' + data.reason, 'error');
+            document.getElementById('whatsapp-status').textContent = 'Disconnected';
+            updateStatus('WhatsApp Disconnected', false);
+        });
+
+        socket.on('whatsapp:loading', (data) => {
+            log(`⏳ Loading: ${data.percent}% - ${data.message}`);
+            document.getElementById('whatsapp-status').textContent = `Loading ${data.percent}%`;
+        });
+
+        socket.on('whatsapp:error', (data) => {
+            log('❌ Error: ' + data.error, 'error');
+            updateStatus('Error: ' + data.error, false);
+        });
+
+        socket.on('whatsapp:state_change', (data) => {
+            log('🔄 State changed: ' + data.state);
+        });
+
+        log('👀 Waiting for WhatsApp client initialization...');
+        log('ℹ️ A Chrome browser window should open (headless: false)');
+        log('ℹ️ Watch for "Requesting main frame too early!" error in server logs');
+    </script>
+</body>
+</html>

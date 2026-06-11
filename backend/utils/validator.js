@@ -1,5 +1,11 @@
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+/**
+ * WhatsApp Validator - Baileys Compatible
+ *
+ * This class provides phone number validation and WhatsApp registration checking
+ * using the Baileys library. It no longer manages its own WhatsApp client -
+ * instead it receives a Baileys socket instance from the caller.
+ */
+
 const { parsePhoneNumber, isValidPhoneNumber } = require('libphonenumber-js');
 const fs = require('fs');
 const csv = require('csv-parser');
@@ -9,62 +15,26 @@ const Dashboard = require('./dashboard');
 
 class WhatsAppValidator {
   constructor() {
-    this.client = null;
+    this.client = null; // Will be set to Baileys socket by caller
     this.dashboard = new Dashboard();
     this.validNumbers = [];
     this.invalidNumbers = [];
   }
 
-  async initialize() {
-    return new Promise((resolve, reject) => {
-      this.dashboard.info('Initializing WhatsApp client...');
-
-      this.client = new Client({
-        authStrategy: new LocalAuth({
-          dataPath: config.sessionPath
-        }),
-        puppeteer: {
-          headless: true,
-          protocolTimeout: 120000,
-          args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
-            '--no-zygote',
-            '--disable-gpu'
-          ]
-        }
-      });
-
-      this.client.on('qr', (qr) => {
-        this.dashboard.info('Scan the QR code below with WhatsApp:');
-        qrcode.generate(qr, { small: true });
-      });
-
-      this.client.on('ready', () => {
-        this.dashboard.success('WhatsApp client is ready!');
-        resolve(); // Resolve when client is fully ready
-      });
-
-      this.client.on('authenticated', () => {
-        this.dashboard.success('Authentication successful!');
-      });
-
-      this.client.on('auth_failure', (msg) => {
-        this.dashboard.error('Authentication failed!');
-        reject(new Error('Authentication failed'));
-      });
-
-      this.client.on('disconnected', (reason) => {
-        this.dashboard.error(`Client disconnected: ${reason}`);
-      });
-
-      this.client.initialize();
-    });
+  /**
+   * Set the Baileys socket client for WhatsApp operations
+   * @param {Object} baileysSocket - Baileys socket instance from server.js
+   */
+  setClient(baileysSocket) {
+    this.client = baileysSocket;
   }
 
+  /**
+   * Validate and format phone number
+   * @param {string} phoneNumber - Phone number to validate
+   * @param {string} countryCode - Default country code (e.g., 'PK')
+   * @returns {string|null} Formatted phone number or null if invalid
+   */
   validateFormat(phoneNumber, countryCode = config.defaultCountryCode) {
     try {
       if (!phoneNumber) return null;
@@ -108,6 +78,11 @@ class WhatsAppValidator {
     }
   }
 
+  /**
+   * Detect country for numbers starting with 0
+   * @param {string} numberStr - Phone number string
+   * @returns {string|null} Formatted number or null
+   */
   detectCountryForZeroPrefix(numberStr) {
     // Common patterns for numbers starting with 0
     // IMPORTANT: Order matters - more specific patterns first!
@@ -154,6 +129,11 @@ class WhatsAppValidator {
     return this.tryMultipleCountries(withoutZero);
   }
 
+  /**
+   * Try validating number with multiple country codes
+   * @param {string} numberStr - Phone number string
+   * @returns {string|null} Formatted number or null
+   */
   tryMultipleCountries(numberStr) {
     // List of major countries to try (ordered by population/usage)
     const countries = [
@@ -190,16 +170,91 @@ class WhatsAppValidator {
     return null;
   }
 
+  /**
+   * Check if a phone number is registered on WhatsApp using Baileys
+   * @param {string} phoneNumber - Phone number in international format (e.g., +923001234567)
+   * @returns {Promise<boolean>} True if registered on WhatsApp
+   */
   async checkWhatsApp(phoneNumber) {
     try {
-      const formattedNumber = phoneNumber.replace('+', '') + '@c.us';
-      const isRegistered = await this.client.isRegisteredUser(formattedNumber);
-      return isRegistered;
+      if (!this.client) {
+        throw new Error('Baileys client not set. Call setClient() first.');
+      }
+
+      // Format number for Baileys: remove + and add @s.whatsapp.net
+      const cleanNumber = phoneNumber.replace('+', '');
+      const jid = cleanNumber + '@s.whatsapp.net';
+
+      console.log(`\n🔍 validator.js checkWhatsApp()`);
+      console.log(`   Input: ${phoneNumber}`);
+      console.log(`   Clean: ${cleanNumber}`);
+      console.log(`   JID: ${jid}`);
+
+      // Check if client has user property (indicates connection state)
+      const clientReady = !!(this.client.user && this.client.user.id);
+      console.log(`   Client Ready: ${clientReady} ⬅️ CRITICAL STATUS`);
+      console.log(`   Client User ID: ${this.client.user?.id || 'Unknown'}`);
+
+      if (!clientReady) {
+        console.error(`   ❌ Client not ready - no user info available`);
+        throw new Error('WhatsApp client not ready');
+      }
+
+      // ===== ATTEMPT 1 =====
+      console.log(`   📡 Calling onWhatsApp (Attempt 1)...`);
+      let startTime = Date.now();
+
+      // CRITICAL FIX: onWhatsApp() expects an ARRAY of JIDs, not a single string
+      // Baileys API: onWhatsApp(jids: string[]): Promise<{exists: boolean, jid: string}[]>
+      let result = await this.client.onWhatsApp([jid]);
+      let duration = Date.now() - startTime;
+
+      console.log(`   ✅ API call completed in ${duration}ms`);
+      console.log(`   Raw Response:`, JSON.stringify(result, null, 2));
+      console.log(`   Result[0].exists: ${result?.[0]?.exists}`);
+
+      // ===== RETRY LOGIC: If exists=false, wait 500ms and try once more =====
+      if (result && result.length > 0 && result[0].exists === false) {
+        console.log(`   ⚠️  RETRY TRIGGERED - First attempt returned exists=false`);
+        console.log(`   Waiting 500ms for socket to stabilize...`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        console.log(`   📡 Calling onWhatsApp (Attempt 2 - RETRY)...`);
+
+        // Re-check client readiness
+        const clientStillReady = !!(this.client.user && this.client.user.id);
+        console.log(`   Client Ready (retry check): ${clientStillReady}`);
+
+        if (!clientStillReady) {
+          console.error(`   ❌ Client disconnected during retry`);
+          return false;
+        }
+
+        startTime = Date.now();
+        result = await this.client.onWhatsApp([jid]);
+        duration = Date.now() - startTime;
+
+        console.log(`   ✅ Retry completed in ${duration}ms`);
+        console.log(`   Retry Result[0].exists: ${result?.[0]?.exists}`);
+      } else {
+        console.log(`   ✓ First attempt succeeded - no retry needed`);
+      }
+
+      const finalResult = result && result.length > 0 && result[0].exists === true;
+      console.log(`   🎯 Final Result: ${finalResult ? 'VALID' : 'INVALID'}\n`);
+
+      return finalResult;
     } catch (error) {
+      console.error(`❌ Error checking WhatsApp for ${phoneNumber}:`, error.message);
+      console.error(`   Stack:`, error.stack);
       return false;
     }
   }
 
+  /**
+   * Read phone numbers from CSV file
+   * @returns {Promise<Array<string>>} Array of phone numbers
+   */
   async readNumbersFromCSV() {
     return new Promise((resolve, reject) => {
       const numbers = [];
@@ -226,6 +281,9 @@ class WhatsAppValidator {
     });
   }
 
+  /**
+   * Save validation results to CSV files
+   */
   async saveResults() {
     const validWriter = createObjectCsvWriter({
       path: config.validOutputFile,
@@ -244,16 +302,39 @@ class WhatsAppValidator {
       ]
     });
 
-    await validWriter.writeRecords(this.validNumbers);
-    await invalidWriter.writeRecords(this.invalidNumbers);
+    if (this.validNumbers.length > 0) {
+      await validWriter.writeRecords(this.validNumbers);
+      this.dashboard.success(`Valid numbers saved to: ${config.validOutputFile}`);
+    }
 
-    this.dashboard.success(`Valid numbers saved to: ${config.validOutputFile}`);
-    this.dashboard.success(`Invalid numbers saved to: ${config.invalidOutputFile}`);
+    if (this.invalidNumbers.length > 0) {
+      await invalidWriter.writeRecords(this.invalidNumbers);
+      this.dashboard.success(`Invalid numbers saved to: ${config.invalidOutputFile}`);
+    }
   }
 
+  /**
+   * DEPRECATED: Initialize method no longer creates its own client
+   * The Baileys client must be provided via setClient()
+   */
+  async initialize() {
+    throw new Error(
+      'initialize() is deprecated. ' +
+      'WhatsApp clients are now managed by server.js. ' +
+      'Use setClient(baileysSocket) to provide a client instance.'
+    );
+  }
+
+  /**
+   * Run validation process
+   * NOTE: This method requires a Baileys client to be set via setClient() first
+   */
   async validate() {
     try {
-      await this.initialize();
+      if (!this.client) {
+        this.dashboard.error('No WhatsApp client provided. Call setClient() before validate().');
+        return;
+      }
 
       this.dashboard.info(`Reading numbers from: ${config.inputFile}`);
       const numbers = await this.readNumbersFromCSV();
@@ -301,15 +382,11 @@ class WhatsAppValidator {
       this.dashboard.complete();
       await this.saveResults();
 
-      await this.client.destroy();
-      process.exit(0);
+      this.dashboard.success('Validation complete!');
 
     } catch (error) {
       this.dashboard.error(error.message);
-      if (this.client) {
-        await this.client.destroy();
-      }
-      process.exit(1);
+      throw error;
     }
   }
 }

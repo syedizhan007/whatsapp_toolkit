@@ -1,4 +1,4 @@
-const WhatsAppValidator = require('./validator');
+const WhatsAppValidator = require('./backend/utils/validator');
 
 console.log(`
 ╔═══════════════════════════════════════════════════════════╗

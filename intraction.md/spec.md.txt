@@ -1,0 +1,52 @@
+Specification: WhatsApp AI Business Toolkit Maintenance
+1. Cleanup & UI Refinement
+Problem 1: Completed Task Cleanup:
+
+Action: Remove all 'Completed' status tasks from Deal Tracker view and Dashboard Deals Overview.
+
+Success Criteria: 'Completed' tasks must not appear in these views; filtering logic must ignore 'Completed' status.
+
+Problem 2: AI Agent UI Cleanup:
+
+Action: Remove "Not responding" and "0 conversations today" labels from the AI Agent dashboard section.
+
+Success Criteria: UI should only show active conversation metrics; no placeholder text for zero-state.
+
+Problem 4: DND Settings Removal:
+
+Action: Delete "Do Not Disturb Settings" and "Start Time" configuration sections from the Bulk Sender module.
+
+Success Criteria: UI must not contain any DND references; database must not store these settings.
+
+2. Media & Attachment Handling
+Problem 3: Attachment Metadata Scrubbing:
+
+Action: Implement a regex-based filter in the transmission layer.
+
+Success Criteria: When a media file is sent, the string attachment: [filename] must be stripped from the outgoing message body. Only the raw media file must be sent.
+
+3. Communication & Connection Fixes
+Problem 7: Persistent Live Feed:
+
+Action: Refactor Live Feed component to fetch and render message history on mount instead of waiting for new messages.
+
+Success Criteria: No "No messages yet" placeholder; history should load instantly from cache/DB.
+
+Problem 8: Connection Status Sync:
+
+Action: Centralize connection_status in the state management layer (Redux/Context). Fix the UI mismatch where the background status is "Connected" but UI shows "Disconnected".
+
+Success Criteria: UI must show "Connected" status immediately upon successful WhatsApp handshake.
+
+4. Ban Risk Mitigation (High Priority)
+Problem 5 & 6: Ban Risk Reduction & Multimedia Randomization:
+
+Action: Implement the following 3 layers of randomization:
+
+Metadata Scrubbing: Strip EXIF/Metadata from all media before sending.
+
+Filename Randomization: Generate unique, randomized filenames for every media upload.
+
+Dynamic Delays: Inject random inter-message delays using Gaussian distribution (mimicking human typing speed).
+
+Success Criteria: 0% ban rate; system must demonstrate random delays (e.g., 2s to 8s) between message transmissions.
