@@ -1,32 +1,36 @@
-# Node.js ka latest version use karo
-FROM node:20
+# Lightweight Node.js image for fast Hugging Face deployment
+FROM node:20-slim
 
-# System dependencies install karo (Puppeteer ke liye)
-RUN apt-get update && apt-get install -y \
-    chromium \
-    libnss3 \
-    libxss1 \
-    libasound2 \
-    libatk-bridge2.0-0 \
-    libgtk-3-0 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Working directory set karo
+# Working directory
 WORKDIR /app
 
-# Dependencies copy aur install karo
-COPY package*.json ./
-RUN npm install
+# Install only essential system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Baaki files copy karo
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies (production only for smaller size)
+RUN npm ci --omit=dev || npm install --production
+
+# Copy application code
 COPY . .
 
-# Environment variables
-ENV PORT=7860
-ENV NODE_ENV=production
+# Create required directories
+RUN mkdir -p .baileys_auth uploads backend/uploads
 
-# Port expose karo
+# Environment variables
+ENV NODE_ENV=production \
+    PORT=7860
+
+# Expose port
 EXPOSE 7860
 
-# App run karo
+# Health check for Hugging Face
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:7860/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+
+# Start application
 CMD ["node", "server.js"]
