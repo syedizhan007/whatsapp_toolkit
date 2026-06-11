@@ -1,23 +1,7 @@
-# Simple lightweight Node.js image
-FROM node:20-slim
-
+FROM node:20
 WORKDIR /app
-
-# Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install --production
-
-# Copy application code
+RUN npm install
 COPY . .
-
-# Create directories
-RUN mkdir -p .baileys_auth uploads backend/uploads
-
-# Environment
-ENV NODE_ENV=production
-ENV PORT=7860
-
 EXPOSE 7860
-
-# Start server
 CMD ["node", "server.js"]
