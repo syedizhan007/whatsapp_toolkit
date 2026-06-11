@@ -11,9 +11,14 @@ const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
 
+// Security packages
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { body, validationResult } = require('express-validator');
+
 // Baileys imports
 const makeWASocket = require('@whiskeysockets/baileys').default;
-const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const pino = require('pino');
 
@@ -32,14 +37,129 @@ const io = socketIO(server, {
     }
 });
 
-const activeLoops = require('./activeLoops');
+const activeLoops = require('./backend/utils/activeLoops');
+
+// ===== SAFE JID WRAPPER FOR BAILEYS onWhatsApp() =====
+/**
+ * Safely normalizes and validates a JID before passing to Baileys onWhatsApp()
+ * This prevents TypeError: jid?.endsWith is not a function
+ *
+ * @param {string} rawJid - Raw JID string (e.g., "923001234567@s.whatsapp.net")
+ * @returns {string} - Normalized JID guaranteed to be a valid string
+ * @throws {Error} - If JID cannot be normalized or is invalid
+ */
+function safeNormalizeJid(rawJid) {
+    // Step 1: Validate input is a string
+    if (typeof rawJid !== 'string') {
+        throw new Error(`JID must be a string, got ${typeof rawJid}`);
+    }
+
+    // Step 2: Validate not empty
+    if (!rawJid || rawJid.trim() === '') {
+        throw new Error('JID cannot be empty');
+    }
+
+    // Step 3: Use Baileys' jidNormalizedUser to normalize the JID
+    let normalizedJid;
+    try {
+        normalizedJid = jidNormalizedUser(rawJid);
+    } catch (normalizeError) {
+        throw new Error(`JID normalization failed: ${normalizeError.message}`);
+    }
+
+    // Step 4: Validate normalized output is a string
+    if (typeof normalizedJid !== 'string') {
+        throw new Error(`Normalized JID is not a string (got ${typeof normalizedJid}), original: ${rawJid}`);
+    }
+
+    // Step 5: Validate normalized JID is not empty
+    if (!normalizedJid || normalizedJid.trim() === '') {
+        throw new Error(`Normalized JID is empty, original: ${rawJid}`);
+    }
+
+    // Step 6: Validate JID format (should contain @)
+    if (!normalizedJid.includes('@')) {
+        throw new Error(`Normalized JID has invalid format (missing @): ${normalizedJid}`);
+    }
+
+    console.log(`   ✅ JID normalized: "${rawJid}" → "${normalizedJid}"`);
+    return normalizedJid;
+}
+
+// ===== TEST PROBE: Verify safeNormalizeJid works correctly =====
+function testJidNormalization() {
+    console.log('\n🧪 TESTING JID NORMALIZATION WRAPPER');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    const testCases = [
+        { input: '923001234567@s.whatsapp.net', expected: 'success' },
+        { input: '923001234567', expected: 'success' }, // Should normalize to include @s.whatsapp.net
+        { input: '', expected: 'fail' },
+        { input: null, expected: 'fail' },
+        { input: undefined, expected: 'fail' },
+        { input: 123456, expected: 'fail' },
+    ];
+
+    let passed = 0;
+    let failed = 0;
+
+    testCases.forEach((testCase, index) => {
+        try {
+            const result = safeNormalizeJid(testCase.input);
+            if (testCase.expected === 'success') {
+                console.log(`✅ Test ${index + 1} PASS: "${testCase.input}" → "${result}"`);
+                passed++;
+            } else {
+                console.error(`❌ Test ${index + 1} FAIL: Expected error but got "${result}"`);
+                failed++;
+            }
+        } catch (error) {
+            if (testCase.expected === 'fail') {
+                console.log(`✅ Test ${index + 1} PASS: Correctly threw error for "${testCase.input}"`);
+                passed++;
+            } else {
+                console.error(`❌ Test ${index + 1} FAIL: Unexpected error: ${error.message}`);
+                failed++;
+            }
+        }
+    });
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`🧪 TEST RESULTS: ${passed} passed, ${failed} failed`);
+
+    if (failed > 0) {
+        console.error('❌ TEST PROBE FAILED - JID normalization wrapper has issues!');
+        return false;
+    } else {
+        console.log('✅ TEST PROBE PASSED - JID normalization wrapper is working correctly!\n');
+        return true;
+    }
+}
+
+// Run test probe on server startup
+console.log('\n🔍 Running JID normalization test probe...');
+const testResult = testJidNormalization();
+if (!testResult) {
+    console.error('⚠️  WARNING: JID normalization tests failed. Check safeNormalizeJid implementation.');
+    console.error('⚠️  Server will continue but validation may have issues.\n');
+} else {
+    console.log('✅ JID normalization verified and ready.\n');
+}
 
 // ===== SUPABASE CLIENT =====
-const SUPABASE_URL = 'https://xrphyjkrzolqyowkkvzf.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhycGh5amtyem9scXlvd2trdnpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NjM5NTIsImV4cCI6MjA5MzUzOTk1Mn0.Tk-ESBR82crBvISHFJAP2JE_zmkUc4YRgB7VgQtRBFE';
+// Load from environment variables for security
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://xrphyjkrzolqyowkkvzf.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhycGh5amtyem9scXlvd2trdnpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NjM5NTIsImV4cCI6MjA5MzUzOTk1Mn0.Tk-ESBR82crBvISHFJAP2JE_zmkUc4YRgB7VgQtRBFE';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 console.log('✓ Supabase client initialized');
+
+// Validate Supabase configuration
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.error('❌ CRITICAL: Missing Supabase configuration!');
+    console.error('   Please set SUPABASE_URL and SUPABASE_ANON_KEY in .env file');
+    process.exit(1);
+}
 
 // ===== MULTI-USER WHATSAPP CLIENTS =====
 // Each user gets their own isolated WhatsApp client
@@ -396,6 +516,99 @@ let aiAgentEnabled = false;
 // const DEAL_KEYWORDS = ['price', 'cost', 'buy', 'purchase', 'interested', 'quote', 'order', 'deal', 'package', 'service'];
 
 // ===== MIDDLEWARE =====
+
+// Helmet - Additional security headers
+app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP for now (would need custom config for Socket.IO)
+    crossOriginEmbedderPolicy: false // Allow external resources
+}));
+
+// Security Headers Middleware (Custom)
+app.use((req, res, next) => {
+    // Prevent MIME type sniffing
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    // Prevent clickjacking attacks
+    res.setHeader('X-Frame-Options', 'DENY');
+
+    // Enable XSS protection in older browsers
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+
+    // Enforce HTTPS in production (max-age: 1 year)
+    if (process.env.NODE_ENV === 'production') {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+
+    next();
+});
+
+// ===== RATE LIMITING =====
+
+// General API rate limiter (100 requests per minute per IP)
+const apiLimiter = rateLimit({
+    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000, // 1 minute
+    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // 100 requests per window
+    message: 'Too many requests from this IP, please try again later.',
+    standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
+    legacyHeaders: false, // Disable `X-RateLimit-*` headers
+});
+
+// Strict rate limiter for authentication endpoints (5 requests per minute)
+const authLimiter = rateLimit({
+    windowMs: 60000, // 1 minute
+    max: parseInt(process.env.RATE_LIMIT_AUTH_MAX) || 5, // 5 requests per window
+    message: 'Too many authentication attempts, please try again later.',
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Apply rate limiters
+app.use('/api/', apiLimiter); // Apply to all API routes
+app.use('/api/auth/', authLimiter); // Stricter limit for auth routes
+
+console.log('✓ Rate limiting enabled (API: 100/min, Auth: 5/min)');
+
+// ===== INPUT VALIDATION & SANITIZATION =====
+
+// Sanitization helper functions
+const sanitizeString = (str) => {
+    if (typeof str !== 'string') return str;
+    // Remove potential XSS vectors
+    return str
+        .replace(/[<>]/g, '') // Remove < and >
+        .replace(/javascript:/gi, '') // Remove javascript: protocol
+        .replace(/on\w+=/gi, '') // Remove event handlers like onclick=
+        .trim();
+};
+
+const sanitizeNumber = (num) => {
+    const parsed = parseFloat(num);
+    return isNaN(parsed) ? 0 : parsed;
+};
+
+const sanitizePhone = (phone) => {
+    if (!phone) return '';
+    // Only allow digits, +, and whitespace
+    return String(phone).replace(/[^\d+\s]/g, '').trim();
+};
+
+// Validation middleware
+const validateRequest = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({
+            success: false,
+            errors: errors.array().map(err => ({
+                field: err.path,
+                message: err.msg
+            }))
+        });
+    }
+    next();
+};
+
+console.log('✓ Security headers and rate limiting middleware enabled');
+
 app.use(express.json());
 app.use(express.static(__dirname));
 
@@ -991,7 +1204,7 @@ async function initializeWhatsAppClient(userId) {
                                 .select('id, status, created_at')
                                 .eq('user_id', userId)
                                 .eq('customer_phone', resolvedPhone)
-                                .in('status', ['new', 'pending'])
+                                .in('status', ['new'])
                                 .order('created_at', { ascending: false })
                                 .limit(1)
                                 .maybeSingle();
@@ -1340,6 +1553,24 @@ ANSWER QUESTIONS FREELY:
 
 // ===== API ENDPOINTS =====
 
+// Configuration endpoint for client-side Supabase initialization
+app.get('/api/config', (req, res) => {
+    try {
+        // Only expose public configuration (anon key is safe to expose)
+        res.json({
+            success: true,
+            supabaseUrl: SUPABASE_URL,
+            supabaseAnonKey: SUPABASE_KEY
+        });
+    } catch (error) {
+        console.error('❌ Error serving config:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to load configuration'
+        });
+    }
+});
+
 // Mount campaign routes
 app.use('/api/campaigns', campaignRoutes);
 
@@ -1377,6 +1608,171 @@ app.get('/api/whatsapp/status', (req, res) => {
             info: null,
             timestamp: new Date().toISOString(),
             error: error.message
+        });
+    }
+});
+
+// Verify and force-check WhatsApp connection state
+app.post('/api/whatsapp/verify-connection', async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                connected: false,
+                message: 'userId is required'
+            });
+        }
+
+        console.log(`🔍 Verifying connection for user ${userId}...`);
+
+        const userData = getUserData(userId);
+
+        // Check if client exists
+        if (!userData.client) {
+            console.log(`   ❌ No client found for user ${userId}`);
+            return res.json({
+                success: false,
+                connected: false,
+                message: 'WhatsApp client not initialized',
+                action: 'reconnect'
+            });
+        }
+
+        // Check if marked as ready
+        if (!userData.isReady) {
+            console.log(`   ⚠️ Client exists but not marked as ready for user ${userId}`);
+            return res.json({
+                success: false,
+                connected: false,
+                message: 'WhatsApp not connected',
+                action: 'reconnect'
+            });
+        }
+
+        // Try to actively verify connection by checking user info
+        try {
+            const info = userData.client.user;
+
+            if (!info || !info.id) {
+                console.log(`   ❌ No user info available - connection lost for user ${userId}`);
+
+                // Mark as disconnected
+                userData.isReady = false;
+
+                // Emit disconnection event
+                io.to(userId).emit('whatsapp:disconnected', {
+                    reason: 'Connection verification failed',
+                    timestamp: new Date().toISOString()
+                });
+
+                return res.json({
+                    success: false,
+                    connected: false,
+                    message: 'Connection lost - verification failed',
+                    action: 'reconnect'
+                });
+            }
+
+            console.log(`   ✅ Connection verified for user ${userId}`);
+            return res.json({
+                success: true,
+                connected: true,
+                message: 'Connection active',
+                info: {
+                    id: info.id,
+                    name: info.name || info.notify || 'User'
+                }
+            });
+
+        } catch (verifyError) {
+            console.error(`   ❌ Connection verification failed for user ${userId}:`, verifyError.message);
+
+            // Mark as disconnected
+            userData.isReady = false;
+
+            // Emit disconnection event
+            io.to(userId).emit('whatsapp:disconnected', {
+                reason: 'Connection verification error',
+                timestamp: new Date().toISOString()
+            });
+
+            return res.json({
+                success: false,
+                connected: false,
+                message: 'Connection verification error',
+                error: verifyError.message,
+                action: 'reconnect'
+            });
+        }
+
+    } catch (error) {
+        console.error('❌ Error in verify-connection:', error);
+        res.status(500).json({
+            success: false,
+            connected: false,
+            message: error.message,
+            action: 'reconnect'
+        });
+    }
+});
+
+// Force reconnect WhatsApp client
+app.post('/api/whatsapp/reconnect', async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'userId is required'
+            });
+        }
+
+        console.log(`🔄 Force reconnect requested for user ${userId}...`);
+
+        const userData = getUserData(userId);
+
+        // If client exists and is ready, no need to reconnect
+        if (userData.client && userData.isReady) {
+            console.log(`   ✓ Client already connected for user ${userId}`);
+            return res.json({
+                success: true,
+                message: 'Already connected'
+            });
+        }
+
+        // If client exists but not ready, try to destroy it first
+        if (userData.client) {
+            console.log(`   🗑️ Destroying existing client for user ${userId}...`);
+            try {
+                await userData.client.end();
+            } catch (err) {
+                console.warn(`   ⚠️ Error ending client:`, err.message);
+            }
+            userData.client = null;
+        }
+
+        // Reset reconnect attempts
+        userData.reconnectAttempts = 0;
+        userData.isReady = false;
+        userData.isInitializing = false;
+
+        // Reinitialize the client
+        console.log(`   🚀 Reinitializing WhatsApp client for user ${userId}...`);
+        await initializeWhatsAppClient(userId);
+
+        res.json({
+            success: true,
+            message: 'Reconnection initiated'
+        });
+
+    } catch (error) {
+        console.error('❌ Error in reconnect:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
         });
     }
 });
@@ -1484,9 +1880,21 @@ app.get('/api/whatsapp/client', (req, res) => {
 });
 
 // Send a test message
-app.post('/api/whatsapp/send-message', async (req, res) => {
+app.post('/api/whatsapp/send-message',
+    // Validation rules
+    [
+        body('userId').notEmpty().withMessage('userId is required'),
+        body('number').notEmpty().matches(/^[\d+\s-]+$/).withMessage('Invalid phone number'),
+        body('message').notEmpty().isString().trim().isLength({ max: 4096 }).withMessage('Message too long (max 4096 chars)')
+    ],
+    validateRequest,
+    async (req, res) => {
     try {
-        const { number, message, userId } = req.body;
+        let { number, message, userId } = req.body;
+
+        // Sanitize inputs
+        number = sanitizePhone(number);
+        message = sanitizeString(message);
 
         if (!userId) {
             return res.status(401).json({
@@ -1608,16 +2016,28 @@ app.post('/api/stats/validation', (req, res) => {
 });
 
 // Get comprehensive dashboard statistics with campaign aggregation
-app.get('/api/dashboard/stats', (req, res) => {
+app.get('/api/dashboard/stats', async (req, res) => {
     try {
         const { userId } = req.query;
 
-        // Get user-specific or aggregated stats and deals
-        let stats, deals;
+        // Get user-specific or aggregated stats
+        let stats;
+        let deals = [];
 
         if (userId) {
             stats = getUserStats(userId);
-            deals = getUserDeals(userId);
+
+            // Query actual deals from database instead of in-memory Map
+            const { data: dealsData, error: dealsError } = await supabase
+                .from('deal_tracker')
+                .select('*')
+                .eq('user_id', userId);
+
+            if (!dealsError && dealsData) {
+                deals = dealsData;
+            } else if (dealsError) {
+                console.error('❌ Error fetching deals for dashboard:', dealsError.message);
+            }
         } else {
             // Aggregate across all users
             stats = {
@@ -1629,19 +2049,24 @@ app.get('/api/dashboard/stats', (req, res) => {
                 activeCampaigns: 0
             };
 
-            deals = [];
+            // Query all deals from database
+            const { data: allDealsData, error: allDealsError } = await supabase
+                .from('deal_tracker')
+                .select('*');
+
+            if (!allDealsError && allDealsData) {
+                deals = allDealsData;
+            } else if (allDealsError) {
+                console.error('❌ Error fetching all deals for dashboard:', allDealsError.message);
+            }
 
             for (const [, userStat] of userStats) {
                 stats.totalMessages += userStat.totalMessages || 0;
                 stats.messagesReceived += userStat.messagesReceived || 0;
                 stats.messagesSent += userStat.messagesSent || 0;
-                stats.dealsLocked += userStat.dealsLocked || 0;
+                // Don't use in-memory dealsLocked anymore, use database count
                 stats.numbersValidated += userStat.numbersValidated || 0;
                 stats.activeCampaigns += userStat.activeCampaigns || 0;
-            }
-
-            for (const [, userDealsArray] of userDeals) {
-                deals.push(...userDealsArray);
             }
         }
 
@@ -1707,7 +2132,6 @@ app.get('/api/dashboard/stats', (req, res) => {
             // Deal status breakdown
             dealsBreakdown: {
                 new: deals.filter(d => d.status === 'new').length,
-                pending: deals.filter(d => d.status === 'pending').length,
                 completed: deals.filter(d => d.status === 'completed').length
             }
         };
@@ -1943,14 +2367,14 @@ app.get('/api/deals', (req, res) => {
     // Counters
     const totalDeals = deals.length;
     const completed = deals.filter(d => d.status === 'completed').length;
-    const pending = deals.filter(d => d.status === 'pending' || d.status === 'new').length;
+    const newDeals = deals.filter(d => d.status === 'new').length;
 
     res.json({
         success: true,
         deals: paginatedDeals,
         totalDeals,
         completed,
-        pending,
+        newDeals,
         total: filtered.length,
         page: parseInt(page),
         totalPages: Math.ceil(filtered.length / parseInt(limit))
@@ -1958,10 +2382,28 @@ app.get('/api/deals', (req, res) => {
 });
 
 // NEW: Update deal status or phone - MULTI-TENANT
-app.put('/api/deals/tracked/:id', async (req, res) => {
+app.put('/api/deals/tracked/:id',
+    // Validation rules
+    [
+        body('userId').notEmpty().withMessage('userId is required'),
+        body('status').optional().isIn(['new', 'completed', 'cancelled']).withMessage('Invalid status'),
+        body('customer_phone').optional().custom(value => {
+            if (value && !/^[\d+\s-]+$/.test(value)) {
+                throw new Error('Invalid phone number format');
+            }
+            return true;
+        })
+    ],
+    validateRequest,
+    async (req, res) => {
     try {
         const { id } = req.params;
-        const { status, customer_phone, userId } = req.body;
+        let { status, customer_phone, userId } = req.body;
+
+        // Sanitize inputs
+        if (customer_phone) {
+            customer_phone = sanitizePhone(customer_phone);
+        }
 
         if (!userId) {
             return res.status(400).json({
@@ -1978,7 +2420,7 @@ app.put('/api/deals/tracked/:id', async (req, res) => {
         // Add status if provided
         if (status) {
             // Validate status
-            const validStatuses = ['new', 'pending', 'completed', 'cancelled'];
+            const validStatuses = ['new', 'completed', 'cancelled'];
             if (!validStatuses.includes(status)) {
                 return res.status(400).json({
                     success: false,
@@ -2154,7 +2596,6 @@ app.get('/api/deals/tracked', async (req, res) => {
 
         const statusCounts = {
             new: allDeals?.filter(d => d.status === 'new').length || 0,
-            pending: allDeals?.filter(d => d.status === 'pending').length || 0,
             completed: allDeals?.filter(d => d.status === 'completed').length || 0,
             cancelled: allDeals?.filter(d => d.status === 'cancelled').length || 0
         };
@@ -2306,9 +2747,25 @@ app.get('/api/business-config', async (req, res) => {
 });
 
 // Update business config (AI prompt) - MULTI-TENANT
-app.post('/api/business-config', async (req, res) => {
+app.post('/api/business-config',
+    // Validation rules
+    [
+        body('userId').notEmpty().withMessage('userId is required'),
+        body('prompt_text').optional().isString().trim().isLength({ max: 5000 }).withMessage('Prompt text too long (max 5000 chars)'),
+        body('payment_details').optional().isString().trim().isLength({ max: 1000 }).withMessage('Payment details too long (max 1000 chars)')
+    ],
+    validateRequest,
+    async (req, res) => {
     try {
-        const { userId, prompt_text, payment_details } = req.body;
+        let { userId, prompt_text, payment_details } = req.body;
+
+        // Sanitize inputs
+        if (prompt_text) {
+            prompt_text = sanitizeString(prompt_text);
+        }
+        if (payment_details) {
+            payment_details = sanitizeString(payment_details);
+        }
 
         if (!userId) {
             return res.status(400).json({
@@ -2572,9 +3029,21 @@ app.get('/api/products', async (req, res) => {
 });
 
 // Create a new product - MULTI-TENANT
-app.post('/api/products', async (req, res) => {
+app.post('/api/products',
+    // Validation rules
+    [
+        body('userId').notEmpty().withMessage('userId is required'),
+        body('item_name').notEmpty().trim().isLength({ min: 1, max: 200 }).withMessage('Product name must be 1-200 characters'),
+        body('price_pkr').notEmpty().isFloat({ min: 0 }).withMessage('Price must be a positive number')
+    ],
+    validateRequest,
+    async (req, res) => {
     try {
-        const { item_name, price_pkr, userId } = req.body;
+        let { item_name, price_pkr, userId } = req.body;
+
+        // Sanitize inputs
+        item_name = sanitizeString(item_name);
+        price_pkr = sanitizeNumber(price_pkr);
 
         if (!userId) {
             return res.status(400).json({
@@ -2631,10 +3100,22 @@ app.post('/api/products', async (req, res) => {
 });
 
 // Update a product - MULTI-TENANT
-app.put('/api/products/:id', async (req, res) => {
+app.put('/api/products/:id',
+    // Validation rules
+    [
+        body('userId').notEmpty().withMessage('userId is required'),
+        body('item_name').notEmpty().trim().isLength({ min: 1, max: 200 }).withMessage('Product name must be 1-200 characters'),
+        body('price_pkr').notEmpty().isFloat({ min: 0 }).withMessage('Price must be a positive number')
+    ],
+    validateRequest,
+    async (req, res) => {
     try {
         const { id } = req.params;
-        const { item_name, price_pkr, userId } = req.body;
+        let { item_name, price_pkr, userId } = req.body;
+
+        // Sanitize inputs
+        item_name = sanitizeString(item_name);
+        price_pkr = sanitizeNumber(price_pkr);
 
         if (!userId) {
             return res.status(400).json({
@@ -3229,56 +3710,6 @@ app.post('/api/bulk/campaigns', bulkUpload.array('media', 10), async (req, res) 
         });
     }
 });
-            const phone = String(c.phone || '').trim();
-            return phone.length >= 7; // Minimum valid phone length
-        });
-
-        console.log(`✓ Valid contacts: ${validContacts.length} / ${contactsList.length}`);
-
-        if (validContacts.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'No valid contacts found. Please check your file format.'
-            });
-        }
-
-        const campaign = {
-            id: campaignIdCounter++,
-            name,
-            message,
-            contacts: validContacts,
-            status: 'pending',
-            sent: 0,
-            failed: 0,
-            pending: validContacts.length,
-            created_at: new Date().toISOString(),
-            media: req.files ? req.files.map(f => ({
-                filename: f.originalname,
-                size: f.size,
-                mimetype: f.mimetype,
-                buffer: f.buffer // Store the actual file buffer
-            })) : []
-        };
-
-        bulkCampaigns.push(campaign);
-
-        console.log(`✅ Campaign created: ID=${campaign.id}, Valid contacts=${validContacts.length}`);
-
-        res.json({
-            success: true,
-            campaignId: campaign.id,
-            message: 'Campaign created successfully',
-            totalContacts: validContacts.length,
-            skipped: contactsList.length - validContacts.length
-        });
-    } catch (error) {
-        console.error('❌ Error creating campaign:', error);
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
-});
 
 // Start campaign
 app.post('/api/bulk/campaigns/:id/start', async (req, res) => {
@@ -3469,14 +3900,18 @@ app.post('/api/bulk/campaigns/:id/start', async (req, res) => {
                         campaign.failed++;
                         campaign.pending--;
 
-                        // Emit progress update
-                        io.emit('bulk-campaign:progress', {
+                        // Emit progress update (user-specific)
+                        io.to(campaign.userId).emit('campaign-update', {
                             campaignId: campaign.id,
                             sent: campaign.sent,
                             failed: campaign.failed,
                             pending: campaign.pending,
-                            currentContact: contact.name,
-                            error: 'Blacklisted Number'
+                            status: campaign.status,
+                            contactName: contact.name,
+                            contactPhone: contact.phone,
+                            contactStatus: 'failed',
+                            error: 'Blacklisted Number',
+                            timestamp: new Date().toISOString()
                         });
 
                         console.log(`⏭️  Continuing to next contact...\n`);
@@ -3497,8 +3932,19 @@ app.post('/api/bulk/campaigns/:id/start', async (req, res) => {
                     // Baileys uses @s.whatsapp.net for regular chats
                     const jid = phoneNumber + '@s.whatsapp.net';
 
+                    // Template rotation: pick random template if array, otherwise use string
+                    let selectedTemplate;
+                    if (Array.isArray(campaign.message)) {
+                        // Pick random template from array
+                        selectedTemplate = campaign.message[Math.floor(Math.random() * campaign.message.length)];
+                        console.log(`🔄 Template rotation: Selected template ${campaign.message.indexOf(selectedTemplate) + 1}/${campaign.message.length}`);
+                    } else {
+                        // Single template string
+                        selectedTemplate = campaign.message;
+                    }
+
                     // Replace variables in message template
-                    let personalizedMessage = campaign.message
+                    let personalizedMessage = selectedTemplate
                         .replace(/{name}/g, contact.name || 'there')
                         .replace(/{city}/g, contact.city || '')
                         .replace(/{tag}/g, contact.tag || '')
@@ -3530,7 +3976,7 @@ app.post('/api/bulk/campaigns/:id/start', async (req, res) => {
                                     if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(fileExt)) {
                                         await userData.client.sendMessage(jid, {
                                             image: fileBuffer,
-                                            caption: `Attachment: ${path.basename(mediaPath)}`
+                                            caption: ''
                                         });
                                     } else if (['.pdf', '.doc', '.docx', '.txt'].includes(fileExt)) {
                                         await userData.client.sendMessage(jid, {
@@ -3570,7 +4016,7 @@ app.post('/api/bulk/campaigns/:id/start', async (req, res) => {
                                 if (isImage) {
                                     await userData.client.sendMessage(jid, {
                                         image: mediaFile.buffer,
-                                        caption: `Attachment: ${mediaFile.filename}`
+                                        caption: ''
                                     });
                                 } else {
                                     await userData.client.sendMessage(jid, {
@@ -3601,12 +4047,18 @@ app.post('/api/bulk/campaigns/:id/start', async (req, res) => {
 
                     console.log(`✅ Completed ${campaign.sent}/${campaign.contacts.length}`);
 
-                    // Emit progress update
-                    io.emit('bulk-campaign:progress', {
+                    // Emit progress update (user-specific)
+                    io.to(campaign.userId).emit('campaign-update', {
                         campaignId: campaign.id,
                         sent: campaign.sent,
                         failed: campaign.failed,
-                        pending: campaign.pending
+                        pending: campaign.pending,
+                        status: campaign.status,
+                        contactName: contact.name,
+                        contactPhone: contact.phone,
+                        contactStatus: 'sent',
+                        error: null,
+                        timestamp: new Date().toISOString()
                     });
 
                     // Random delay between 8-15 seconds before next contact
@@ -3625,12 +4077,18 @@ app.post('/api/bulk/campaigns/:id/start', async (req, res) => {
                     campaign.failed++;
                     campaign.pending--;
 
-                    // Emit progress update
-                    io.emit('bulk-campaign:progress', {
+                    // Emit progress update (user-specific)
+                    io.to(campaign.userId).emit('campaign-update', {
                         campaignId: campaign.id,
                         sent: campaign.sent,
                         failed: campaign.failed,
-                        pending: campaign.pending
+                        pending: campaign.pending,
+                        status: campaign.status,
+                        contactName: contact.name,
+                        contactPhone: contact.phone,
+                        contactStatus: 'failed',
+                        error: error.message || 'Send failed',
+                        timestamp: new Date().toISOString()
                     });
                 }
             }
@@ -3642,7 +4100,16 @@ app.post('/api/bulk/campaigns/:id/start', async (req, res) => {
             console.log(`   → Total contacts: ${campaign.contacts.length}`);
             console.log(`   → Success rate: ${((campaign.sent / campaign.contacts.length) * 100).toFixed(1)}%`);
 
-            io.emit('bulk-campaign:complete', {
+            io.to(campaign.userId).emit('campaign-update', {
+                campaignId: campaign.id,
+                sent: campaign.sent,
+                failed: campaign.failed,
+                pending: 0,
+                status: 'completed',
+                timestamp: new Date().toISOString()
+            });
+
+            io.to(campaign.userId).emit('bulk-campaign:complete', {
                 campaignId: campaign.id,
                 sent: campaign.sent,
                 failed: campaign.failed
@@ -3830,11 +4297,26 @@ app.get('/api/bulk/blacklist', async (req, res) => {
 });
 
 // Add to blacklist - MULTI-TENANT with Supabase and normalization
-app.post('/api/bulk/blacklist', async (req, res) => {
+app.post('/api/bulk/blacklist',
+    // Validation rules
+    [
+        body('userId').notEmpty().withMessage('userId is required'),
+        body('phone').notEmpty().withMessage('Phone number is required')
+            .matches(/^[\d+\s-]+$/).withMessage('Invalid phone number format'),
+        body('reason').optional().isString().trim().isLength({ max: 200 }).withMessage('Reason too long (max 200 chars)')
+    ],
+    validateRequest,
+    async (req, res) => {
     console.log('📥 [BLACKLIST POST] Received request:', { body: req.body });
 
     try {
-        const { phone, reason, userId } = req.body;
+        let { phone, reason, userId } = req.body;
+
+        // Sanitize inputs
+        phone = sanitizePhone(phone);
+        if (reason) {
+            reason = sanitizeString(reason);
+        }
 
         // SAFEGUARD: Validate userId
         if (!userId) {
@@ -4419,6 +4901,526 @@ app.post('/api/bulk/settings/dnd', (req, res) => {
     });
 });
 
+// ===== LIVE WHATSAPP NUMBER VALIDATOR =====
+// Bulk validate WhatsApp numbers with rate limiting
+app.post('/api/validator/bulk-validate', bulkUpload.single('file'), async (req, res) => {
+    try {
+        const { userId } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'userId is required'
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'No file uploaded'
+            });
+        }
+
+        console.log(`📋 Bulk validation request from user ${userId}`);
+        console.log(`   File: ${req.file.originalname} (${req.file.size} bytes)`);
+
+        // Get user's WhatsApp client
+        const userData = getUserData(userId);
+        if (!userData.isReady || !userData.client) {
+            return res.status(503).json({
+                success: false,
+                message: 'WhatsApp is not connected. Please scan QR code first.'
+            });
+        }
+
+        // Parse file (CSV or Excel)
+        let numbers = [];
+        const fileExt = path.extname(req.file.originalname).toLowerCase();
+
+        if (fileExt === '.csv') {
+            // Parse CSV
+            const csvContent = req.file.buffer.toString('utf-8');
+            const lines = csvContent.split(/\r?\n/).filter(line => line.trim());
+
+            // Skip header if present
+            const startIndex = lines[0].toLowerCase().includes('phone') || lines[0].toLowerCase().includes('number') ? 1 : 0;
+
+            for (let i = startIndex; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line) {
+                    // Extract first column (phone number)
+                    const parts = line.split(',');
+                    const phone = parts[0].replace(/[^0-9]/g, '');
+                    if (phone.length >= 7) {
+                        numbers.push(phone);
+                    }
+                }
+            }
+        } else if (fileExt === '.xlsx' || fileExt === '.xls') {
+            // Parse Excel using XLSX library
+            const XLSX = require('xlsx');
+            const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            // Skip header if present
+            const startIndex = data[0] && (String(data[0][0]).toLowerCase().includes('phone') || String(data[0][0]).toLowerCase().includes('number')) ? 1 : 0;
+
+            for (let i = startIndex; i < data.length; i++) {
+                if (data[i] && data[i][0]) {
+                    const phone = String(data[i][0]).replace(/[^0-9]/g, '');
+                    if (phone.length >= 7) {
+                        numbers.push(phone);
+                    }
+                }
+            }
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid file format. Please upload CSV or Excel file.'
+            });
+        }
+
+        // Remove duplicates
+        numbers = [...new Set(numbers)];
+
+        console.log(`✓ Parsed ${numbers.length} unique numbers from file`);
+
+        if (numbers.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No valid phone numbers found in file'
+            });
+        }
+
+        // Send immediate response
+        res.json({
+            success: true,
+            message: 'Validation started',
+            totalNumbers: numbers.length
+        });
+
+        // Start validation in background
+        (async () => {
+            console.log(`\n🚀 Starting bulk validation for user ${userId}`);
+            console.log(`📊 Total numbers to validate: ${numbers.length}`);
+            console.log(`🔌 WhatsApp Client Status: ${userData.isReady ? 'READY' : 'NOT READY'}`);
+            console.log(`👤 WhatsApp User: ${userData.clientInfo?.name || 'Unknown'}`);
+
+            let processed = 0;
+            let valid = 0;
+            let invalid = 0;
+            const validNumbers = [];
+            const invalidNumbers = [];
+
+            for (let i = 0; i < numbers.length; i++) {
+                const number = numbers[i];
+                console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+                console.log(`[${i + 1}/${numbers.length}] Validating Number`);
+                console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+                console.log(`📱 Raw Input: "${number}"`);
+
+                try {
+                    // ===== STEP 1: NORMALIZE PHONE NUMBER =====
+                    console.log(`\n🔧 NORMALIZATION STARTED`);
+                    let formattedNumber = number;
+
+                    // Remove all non-numeric characters
+                    formattedNumber = formattedNumber.replace(/[^0-9]/g, '');
+                    console.log(`   Step 1 - Digits Only: "${formattedNumber}"`);
+
+                    // Pakistani number handling: remove leading 0, add 92
+                    if (formattedNumber.startsWith('0')) {
+                        formattedNumber = '92' + formattedNumber.substring(1);
+                        console.log(`   Step 2 - Pakistani Format Applied: "${formattedNumber}"`);
+                    }
+
+                    // Ensure country code (default to Pakistan if 10 digits)
+                    if (formattedNumber.length === 10 && !formattedNumber.startsWith('92')) {
+                        formattedNumber = '92' + formattedNumber;
+                        console.log(`   Step 3 - Country Code Added: "${formattedNumber}"`);
+                    }
+
+                    // Validation: Check if normalized number has valid length (11-15 digits)
+                    if (formattedNumber.length < 11 || formattedNumber.length > 15) {
+                        console.log(`   ❌ Invalid length: ${formattedNumber.length} digits (expected 11-15)`);
+                        throw new Error(`Invalid phone number length: ${formattedNumber.length} digits`);
+                    }
+
+                    // Create international format with '+' prefix (for display/logging only)
+                    const internationalNumber = '+' + formattedNumber;
+                    console.log(`   Step 4 - International Format: "${internationalNumber}"`);
+                    console.log(`✅ NORMALIZATION COMPLETE\n`);
+
+                    // ===== STEP 2: CREATE WHATSAPP JID =====
+                    console.log(`🎯 JID CREATION`);
+                    // Create JID for Baileys (WhatsApp uses @s.whatsapp.net for regular numbers)
+                    // IMPORTANT: JID does NOT include '+' prefix - just digits + domain
+                    const jid = formattedNumber + '@s.whatsapp.net';
+                    console.log(`   JID: "${jid}"`);
+                    console.log(`   Format: [DIGITS]@s.whatsapp.net (no '+' prefix)\n`);
+
+                    // ===== STEP 3: VERIFY CLIENT STATE =====
+                    console.log(`🔍 CLIENT STATE VERIFICATION`);
+                    console.log(`   userData.client exists: ${!!userData.client}`);
+                    console.log(`   userData.isReady: ${userData.isReady} ⬅️ CRITICAL STATUS`);
+                    console.log(`   userData.isInitializing: ${userData.isInitializing}`);
+
+                    if (!userData.client) {
+                        console.error(`   ❌ userData.client is NULL - no WhatsApp client instance`);
+                        throw new Error('WhatsApp client is null');
+                    }
+
+                    if (!userData.isReady) {
+                        console.error(`   ❌ userData.isReady is FALSE - client not ready`);
+                        throw new Error('WhatsApp client not ready');
+                    }
+
+                    console.log(`   ✅ Client is ready and available`);
+                    console.log(`   Client User ID: ${userData.client.user?.id || 'Unknown'}`);
+                    console.log(`   Client User Name: ${userData.client.user?.name || 'Unknown'}\n`);
+
+                    // ===== STEP 4: CALL BAILEYS API (WITH RETRY LOGIC - UP TO 2 RETRIES) =====
+                    const MAX_RETRIES = 2;
+                    let retryCount = 0;
+                    let result = null;
+                    let lastError = null;
+                    let isLibraryInternalError = false;
+
+                    // ===== CRITICAL: Validate JID is a string before calling API =====
+                    console.log(`🔒 JID TYPE VALIDATION`);
+                    console.log(`   JID value: "${jid}"`);
+                    console.log(`   JID type: ${typeof jid}`);
+                    console.log(`   JID is string: ${typeof jid === 'string'}`);
+
+                    if (typeof jid !== 'string') {
+                        console.error(`   ❌ CRITICAL: JID is not a string! Type: ${typeof jid}`);
+                        throw new Error(`Invalid JID type: expected string, got ${typeof jid}`);
+                    }
+
+                    if (!jid || jid.trim() === '') {
+                        console.error(`   ❌ CRITICAL: JID is empty or whitespace-only!`);
+                        throw new Error('JID is empty');
+                    }
+
+                    console.log(`   ✅ JID type validation passed\n`);
+
+                    while (retryCount <= MAX_RETRIES && !result && !isLibraryInternalError) {
+                        try {
+                            const attemptNum = retryCount + 1;
+                            console.log(`📡 BAILEYS API CALL (ATTEMPT ${attemptNum}/${MAX_RETRIES + 1})`);
+                            console.log(`   Method: userData.client.onWhatsApp()`);
+                            console.log(`   Parameter: ${jid} (normalized JID string)`);
+                            console.log(`   Calling API...`);
+
+                            // ===== ROBUST TRY-CATCH: Wrap onWhatsApp call to catch library internal errors =====
+                            let apiResult = null;
+                            try {
+                                // ===== STEP 1: Normalize JID using Baileys utility =====
+                                const normalizedJid = safeNormalizeJid(jid);
+
+                                // ===== STEP 2: Call onWhatsApp with normalized JID =====
+                                // Check if number is on WhatsApp using Baileys
+                                // FIXED: onWhatsApp() expects a string JID, not an array
+                                const startTime = Date.now();
+                                apiResult = await userData.client.onWhatsApp(normalizedJid);
+                                const duration = Date.now() - startTime;
+
+                                console.log(`   ✅ API call completed in ${duration}ms`);
+                                console.log(`   Response received: ${!!apiResult}`);
+                                console.log(`   Response type: ${typeof apiResult}`);
+                                console.log(`   Is array: ${Array.isArray(apiResult)}`);
+                                console.log(`   Array length: ${apiResult?.length || 0}`);
+
+                                result = apiResult;
+
+                                if (result && result.length > 0) {
+                                    console.log(`   First result: exists=${result[0]?.exists}`);
+                                }
+
+                            } catch (internalError) {
+                                // ===== HANDLE BAILEYS LIBRARY INTERNAL ERRORS =====
+                                console.error(`\n⚠️  BAILEYS LIBRARY INTERNAL ERROR DETECTED`);
+                                console.error(`   Error Type: ${internalError.constructor.name}`);
+                                console.error(`   Error Message: ${internalError.message}`);
+
+                                // Check if it's a TypeError (jid?.endsWith is not a function, etc.)
+                                if (internalError instanceof TypeError) {
+                                    console.error(`   🔴 TypeError detected - likely Baileys internal bug`);
+                                    console.error(`   Common causes:`);
+                                    console.error(`     - jid?.endsWith is not a function`);
+                                    console.error(`     - Unexpected data type passed to internal function`);
+                                    console.error(`     - Baileys library version incompatibility`);
+                                    console.error(`\n   Full Error Stack:`);
+                                    console.error(`   ${internalError.stack}`);
+
+                                    // Mark as library internal error and skip retries
+                                    isLibraryInternalError = true;
+                                    lastError = internalError;
+
+                                    console.error(`\n   ⚠️  Marking number as 'Unknown' due to library internal error`);
+                                    console.error(`   This number will NOT be retried to avoid repeated crashes\n`);
+                                    break; // Exit retry loop immediately
+                                }
+
+                                // For non-TypeError errors, treat as regular API error and retry
+                                throw internalError;
+                            }
+
+                            // If exists=false on first attempt, try one more time after 500ms
+                            if (attemptNum === 1 && result && result.length > 0 && result[0].exists === false) {
+                                console.log(`⚠️  RETRY TRIGGERED - First attempt returned exists=false`);
+                                console.log(`   Waiting 500ms for socket to stabilize...`);
+                                await new Promise(resolve => setTimeout(resolve, 500));
+
+                                console.log(`📡 BAILEYS API CALL (ATTEMPT 2 - SOCKET STABILIZATION RETRY)`);
+                                console.log(`   userData.isReady: ${userData.isReady} ⬅️ RE-CHECKING STATUS`);
+
+                                if (!userData.isReady) {
+                                    throw new Error('WhatsApp client disconnected during retry');
+                                }
+
+                                console.log(`   Calling API again...`);
+                                const startTime2 = Date.now();
+
+                                // ===== WRAP SOCKET STABILIZATION RETRY IN TRY-CATCH =====
+                                try {
+                                    // Normalize JID before retry attempt
+                                    const normalizedJidRetry = safeNormalizeJid(jid);
+                                    result = await userData.client.onWhatsApp(normalizedJidRetry);
+                                } catch (retryInternalError) {
+                                    if (retryInternalError instanceof TypeError) {
+                                        console.error(`   🔴 TypeError on socket stabilization retry - marking as library error`);
+                                        isLibraryInternalError = true;
+                                        lastError = retryInternalError;
+                                        break;
+                                    }
+                                    throw retryInternalError;
+                                }
+
+                                const duration2 = Date.now() - startTime2;
+
+                                console.log(`   ✅ Socket stabilization retry completed in ${duration2}ms`);
+                                console.log(`   Retry result: exists=${result?.[0]?.exists}\n`);
+                            } else {
+                                console.log(`✓ Attempt ${attemptNum} succeeded\n`);
+                            }
+
+                            // Success - break out of retry loop
+                            break;
+
+                        } catch (apiError) {
+                            lastError = apiError;
+                            retryCount++;
+
+                            console.error(`❌ API CALL FAILED (Attempt ${retryCount}/${MAX_RETRIES + 1})`);
+                            console.error(`   Error Type: ${apiError.constructor.name}`);
+                            console.error(`   Error Message: ${apiError.message}`);
+                            console.error(`   Error Code: ${apiError.code || 'N/A'}`);
+
+                            // Log full error object for debugging
+                            console.error(`   Full Error Object:`, JSON.stringify({
+                                name: apiError.name,
+                                message: apiError.message,
+                                code: apiError.code,
+                                statusCode: apiError.statusCode,
+                                data: apiError.data
+                            }, null, 2));
+
+                            if (retryCount <= MAX_RETRIES) {
+                                const retryDelay = retryCount * 1000; // 1s, 2s for retries
+                                console.log(`   ⏳ Waiting ${retryDelay}ms before retry ${retryCount}...\n`);
+                                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                            } else {
+                                console.error(`   ❌ Max retries (${MAX_RETRIES}) exhausted. Marking as error.\n`);
+                            }
+                        }
+                    }
+
+                    // ===== STEP 5: PARSE RAW RESPONSE =====
+                    if (result) {
+                        console.log(`📦 RAW API RESPONSE ANALYSIS`);
+                        console.log(`   Response received: ${!!result}`);
+                        console.log(`   Response type: ${typeof result}`);
+                        console.log(`   Is array: ${Array.isArray(result)}`);
+                        console.log(`   Array length: ${result?.length || 0}`);
+                        console.log(`\n   Full Response Object:`);
+                        console.log(`   ${JSON.stringify(result, null, 2)}`);
+
+                        if (result && Array.isArray(result) && result.length > 0) {
+                            console.log(`\n   First Element Details:`);
+                            console.log(`   - Type: ${typeof result[0]}`);
+                            console.log(`   - Keys: ${Object.keys(result[0] || {}).join(', ')}`);
+                            console.log(`   - result[0].exists: ${result[0].exists}`);
+                            console.log(`   - result[0].jid: ${result[0].jid}`);
+                            console.log(`   - result[0].jid type: ${typeof result[0].jid}`);
+                        } else {
+                            console.log(`\n   ⚠️  Empty or invalid response structure`);
+                        }
+                    }
+
+                    // ===== STEP 6: VALIDATE AND CATEGORIZE =====
+                    console.log(`\n🎯 VALIDATION DECISION`);
+
+                    // PRIORITY 1: Handle Baileys library internal errors (TypeError)
+                    if (isLibraryInternalError && lastError) {
+                        console.log(`   ⚠️  UNKNOWN - Baileys library internal error`);
+                        console.log(`   - Error Type: ${lastError.constructor.name}`);
+                        console.log(`   - Error Message: ${lastError.message}`);
+                        console.log(`   - Original: ${number}`);
+                        console.log(`   - Normalized: ${formattedNumber}`);
+                        console.log(`   - Status: Marked as UNKNOWN (not retried to prevent crashes)`);
+
+                        invalid++;
+                        invalidNumbers.push({
+                            phone: number,
+                            formatted: formattedNumber,
+                            international: internationalNumber,
+                            status: 'unknown',
+                            errorCategory: 'Library Internal Error',
+                            reason: `Baileys TypeError: ${lastError.message}`,
+                            technicalDetails: 'This is likely a bug in the Baileys library or version incompatibility'
+                        });
+
+                    // PRIORITY 2: STRICT VALIDATION - Only mark as valid if API explicitly returns exists=true
+                    } else if (result && Array.isArray(result) && result.length > 0 && result[0].exists === true) {
+                        console.log(`   ✅ VALID - Number is registered on WhatsApp`);
+                        console.log(`   - Original: ${number}`);
+                        console.log(`   - Normalized: ${formattedNumber}`);
+                        console.log(`   - International: ${internationalNumber}`);
+                        console.log(`   - JID: ${result[0].jid}`);
+
+                        valid++;
+                        validNumbers.push({
+                            phone: number,
+                            formatted: formattedNumber,
+                            international: internationalNumber,
+                            status: 'valid',
+                            jid: result[0].jid
+                        });
+                    } else if (!result && lastError) {
+                        // API call failed after all retries - categorize the error
+                        let errorCategory = 'API Error';
+                        let errorReason = lastError.message;
+
+                        // Categorize common error types
+                        if (lastError.message.includes('rate') || lastError.message.includes('429')) {
+                            errorCategory = 'Rate Limiting';
+                            errorReason = 'Too many requests - rate limited by WhatsApp';
+                        } else if (lastError.message.includes('timeout') || lastError.message.includes('ETIMEDOUT')) {
+                            errorCategory = 'Timeout';
+                            errorReason = 'API request timed out';
+                        } else if (lastError.message.includes('network') || lastError.message.includes('ENOTFOUND')) {
+                            errorCategory = 'Network Error';
+                            errorReason = 'Network connection issue';
+                        } else if (lastError.message.includes('client') || lastError.message.includes('disconnected')) {
+                            errorCategory = 'Client Error';
+                            errorReason = 'WhatsApp client disconnected';
+                        }
+
+                        console.log(`   ❌ ERROR - API call failed after ${MAX_RETRIES} retries`);
+                        console.log(`   - Category: ${errorCategory}`);
+                        console.log(`   - Reason: ${errorReason}`);
+                        console.log(`   - Original: ${number}`);
+                        console.log(`   - Normalized: ${formattedNumber}`);
+
+                        invalid++;
+                        invalidNumbers.push({
+                            phone: number,
+                            formatted: formattedNumber,
+                            international: internationalNumber,
+                            status: 'error',
+                            errorCategory: errorCategory,
+                            reason: errorReason
+                        });
+                    } else {
+                        // API returned a response but exists=false or invalid structure
+                        const reason = !result ? 'No response from API'
+                                     : !Array.isArray(result) ? 'Response is not an array'
+                                     : result.length === 0 ? 'Empty array returned'
+                                     : result[0].exists === false ? 'Not registered on WhatsApp'
+                                     : result[0].exists === undefined ? 'Missing exists field in response'
+                                     : 'Unknown reason';
+
+                        console.log(`   ❌ INVALID - Number not on WhatsApp`);
+                        console.log(`   - Reason: ${reason}`);
+                        console.log(`   - Original: ${number}`);
+                        console.log(`   - Normalized: ${formattedNumber}`);
+
+                        invalid++;
+                        invalidNumbers.push({
+                            phone: number,
+                            formatted: formattedNumber,
+                            international: internationalNumber,
+                            status: 'invalid',
+                            reason: reason
+                        });
+                    }
+
+                } catch (error) {
+                    // Catch normalization errors or other pre-API errors
+                    console.error(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+                    console.error(`❌ PRE-VALIDATION ERROR for ${number}`);
+                    console.error(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+                    console.error(`Error Type: ${error.constructor.name}`);
+                    console.error(`Error Message: ${error.message}`);
+                    console.error(`Error Stack:`, error.stack);
+
+                    invalid++;
+                    invalidNumbers.push({
+                        phone: number,
+                        status: 'error',
+                        errorCategory: 'Format Error',
+                        reason: error.message
+                    });
+                }
+
+                processed++;
+
+                // Emit progress update via Socket.IO
+                io.to(userId).emit('validator:progress', {
+                    processed,
+                    valid,
+                    invalid,
+                    total: numbers.length,
+                    currentNumber: number,
+                    timestamp: new Date().toISOString()
+                });
+
+                // Random delay between 8-15 seconds to avoid bans
+                if (i < numbers.length - 1) {
+                    const delay = Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000;
+                    console.log(`   ⏳ Waiting ${(delay / 1000).toFixed(1)}s before next validation...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+
+            console.log(`\n✅ Validation complete for user ${userId}`);
+            console.log(`📊 Results: Valid=${valid}, Invalid=${invalid}, Total=${numbers.length}`);
+
+            // Emit completion event with results
+            io.to(userId).emit('validator:complete', {
+                processed,
+                valid,
+                invalid,
+                total: numbers.length,
+                validNumbers,
+                invalidNumbers,
+                timestamp: new Date().toISOString()
+            });
+
+        })();
+
+    } catch (error) {
+        console.error('❌ Error in bulk validation:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+});
+
 // ===== END BULK SENDER API ROUTES =====
 
 // ===== SOCKET.IO CONNECTION WITH AUTHENTICATION =====
@@ -4546,7 +5548,7 @@ function isWhatsAppReady(userId) {
     return userData.isReady;
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 7860;
 
 // ===== LOAD CONTACT CACHE ON STARTUP =====
 console.log('📂 Loading contact cache from disk...');

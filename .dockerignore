@@ -1,0 +1,58 @@
+# Node modules (will be installed in Docker)
+node_modules/
+backend/node_modules/
+
+# Environment files (secrets should be set in HF Spaces settings)
+.env
+.env.local
+.env.*.local
+
+# Git files
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Test files
+test/
+*.test.js
+coverage/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# WhatsApp session data (will be created at runtime)
+.baileys_auth/
+.wwebjs_auth/
+backend/.wwebjs_auth/
+contacts_cache.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+
+# Large documentation files
+HEALTH_CHECK_REPORT.md
+REORGANIZATION_*.md
+CLAUDE.md
+*.backup
+*.old

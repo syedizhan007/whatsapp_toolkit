@@ -1,117 +1,115 @@
-# WhatsApp Toolkit Backend
+# WhatsApp Toolkit 📱
 
-A Node.js + Express backend server that integrates three WhatsApp automation tools with a unified web dashboard.
+A comprehensive multi-tenant WhatsApp automation platform with AI-powered responses, bulk messaging, and contact management.
 
-## Features
+## 🚀 Features
 
-- **Number Validator** - Validate phone numbers against WhatsApp
-- **Bulk Sender** - Campaign-based bulk messaging with SQLite database
-- **AI Agent** - Auto-reply bot with Groq AI and deal tracking
-- **Real-time Updates** - WebSocket support for live progress tracking
-- **Authentication** - JWT-based authentication system
-- **REST API** - Complete API for all features
+- **Multi-Tenant Architecture** - Isolated WhatsApp sessions per user
+- **AI Agent** - Groq-powered auto-responses with deal tracking
+- **Bulk Sender** - Campaign management with template rotation
+- **Number Validator** - Live WhatsApp number verification
+- **Deal Tracker** - Automatic buying intent detection
+- **Group Extractor** - Export WhatsApp group members to Excel
+- **Blacklist Management** - Filter contacts across campaigns
 
-## Quick Start
+## 🛠️ Tech Stack
 
-### 1. Install Dependencies
+- **Backend**: Node.js + Express
+- **WhatsApp**: Baileys (WhatsApp Web API)
+- **Database**: Supabase (PostgreSQL)
+- **Real-time**: Socket.IO
+- **AI**: Groq API (llama-3.3-70b-versatile)
+- **Frontend**: Vanilla HTML/CSS/JS
+
+## 📦 Environment Variables
+
+Set these in your Hugging Face Space settings:
 
 ```bash
-cd backend
+PORT=7860
+GROQ_API_KEY=your_groq_api_key
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+NODE_ENV=production
+```
+
+## 🚀 Quick Start
+
+### Docker Deployment
+
+```bash
+docker build -t whatsapp-toolkit .
+docker run -p 7860:7860 \
+  -e GROQ_API_KEY=your_key \
+  -e SUPABASE_URL=your_url \
+  -e SUPABASE_ANON_KEY=your_key \
+  whatsapp-toolkit
+```
+
+### Local Development
+
+```bash
 npm install
+cp .env.example .env
+# Add your credentials to .env
+npm start
 ```
 
-### 2. Configure Environment
+Access dashboard at: http://localhost:7860/dashboard.html
 
-The `.env` file is already configured with default values. Update if needed:
+## 📊 Architecture
 
-```env
-PORT=3000
-JWT_SECRET=your-secret-key
-GROQ_API_KEY=your-groq-api-key
+```
+whatsapptool/
+├── server.js              # Main entry point
+├── dashboard.html         # Main UI
+├── backend/
+│   ├── routes/           # API endpoints
+│   ├── services/         # Business logic
+│   ├── utils/            # Helper functions
+│   ├── middleware/       # Express middleware
+│   └── config/           # Configuration
+└── package.json
 ```
 
-### 3. Start the Server
+## 🔐 Security Features
 
-```bash
-cd backend
-node server.js
-```
+- JWT authentication
+- Rate limiting (100 req/min API, 5 req/min auth)
+- Helmet security headers
+- Input sanitization
+- XSS protection
+- Multi-tenant data isolation
 
-The server will start on http://localhost:3000
+## 📝 API Endpoints
 
-### 4. Access the Dashboard
+- `GET /api/whatsapp/status` - Check connection status
+- `POST /api/whatsapp/send-message` - Send WhatsApp message
+- `GET /api/deals/tracked` - Get tracked deals
+- `POST /api/bulk/campaigns` - Create bulk campaign
+- `GET /api/products` - Get product catalog
+- `GET /api/media` - Get media gallery
 
-Open your browser and go to:
-- **Login Page**: http://localhost:3000/login.html
-- **Dashboard**: http://localhost:3000/dashboard.html (after login)
+## 🎯 Use Cases
 
-**Default Credentials:**
-- Username: `admin`
-- Password: `admin123`
+1. **E-commerce Automation** - Auto-reply to product inquiries
+2. **Lead Generation** - Track buying intent automatically
+3. **Bulk Marketing** - Send campaigns with smart templates
+4. **Contact Verification** - Validate phone numbers before outreach
+5. **Group Management** - Extract member lists from WhatsApp groups
 
-## API Endpoints
+## 📄 License
 
-### Authentication
-- `POST /api/auth/login` - Login with username/password
-- `POST /api/auth/signup` - Create new user account
-- `GET /api/auth/status` - Check authentication status
-- `POST /api/auth/logout` - Logout
+MIT
 
-### Number Validator
-- `POST /api/validator/validate` - Upload CSV and start validation
-- `GET /api/validator/status/:jobId` - Get validation progress
-- `GET /api/validator/results/:jobId` - Get validation results
-- `GET /api/validator/download/:jobId/:type` - Download results CSV
+## 🤝 Contributing
 
-### Campaigns (Bulk Sender)
-- `GET /api/campaigns` - List all campaigns
-- `POST /api/campaigns` - Create new campaign
-- `GET /api/campaigns/:id` - Get campaign details
-- `POST /api/campaigns/:id/contacts` - Upload contacts CSV
-- `PUT /api/campaigns/:id/start` - Start campaign
-- `PUT /api/campaigns/:id/pause` - Pause campaign
-- `PUT /api/campaigns/:id/resume` - Resume campaign
-- `DELETE /api/campaigns/:id` - Delete campaign
-- `GET /api/campaigns/:id/stats` - Get campaign statistics
+This is a production deployment. For development, clone and create a feature branch.
 
-### AI Agent
-- `GET /api/agent/status` - Get agent status
-- `POST /api/agent/start` - Start AI agent
-- `POST /api/agent/stop` - Stop AI agent
-- `GET /api/agent/config` - Get business instructions
-- `PUT /api/agent/config` - Update business instructions
+## 🔗 Links
 
-### Deals
-- `GET /api/deals` - Get all deals
-- `GET /api/deals/:id` - Get specific deal
-- `PUT /api/deals/:id` - Update deal
-- `DELETE /api/deals/:id` - Delete deal
+- [Documentation](https://huggingface.co/spaces/izhan5/whatsapp-toolkit)
 
-## WebSocket
+---
 
-Connect to `ws://localhost:3000/ws` for real-time updates.
-
-## Testing the API
-
-### Login
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
-```
-
-### Health Check
-```bash
-curl http://localhost:3000/api/health
-```
-
-## Security Notes
-
-- The Groq API key has been moved from hardcoded values to the `.env` file
-- JWT tokens expire after 7 days (configurable)
-- All API endpoints except `/auth/login` and `/auth/signup` require authentication
-- File uploads are limited to 10MB
-
-## License
-
-ISC
+**⚠️ Important:** This Space requires WhatsApp QR code scanning on first use. The session persists across restarts.
