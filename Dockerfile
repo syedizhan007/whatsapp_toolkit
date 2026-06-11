@@ -1,30 +1,32 @@
-# WhatsApp Toolkit - Optimized for Hugging Face Spaces
-# Fast build with minimal layers
+# Node.js ka latest version use karo
+FROM node:20
 
-FROM node:20-alpine
+# System dependencies install karo (Puppeteer ke liye)
+RUN apt-get update && apt-get install -y \
+    chromium \
+    libnss3 \
+    libxss1 \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    && rm -rf /var/lib/apt/lists/*
 
+# Working directory set karo
 WORKDIR /app
 
-# Install system dependencies in one layer (optimized)
-RUN apk add --no-cache python3 make g++ cairo-dev jpeg-dev pango-dev giflib-dev
-
-# Copy and install dependencies (with timeout protection)
+# Dependencies copy aur install karo
 COPY package*.json ./
-RUN npm ci --omit=dev --prefer-offline --no-audit --progress=false || \
-    npm install --production --no-audit --progress=false
+RUN npm install
 
-# Copy application code
+# Baaki files copy karo
 COPY . .
 
-# Create directories
-RUN mkdir -p .baileys_auth uploads backend/uploads
+# Environment variables
+ENV PORT=7860
+ENV NODE_ENV=production
 
-# Environment
-ENV NODE_ENV=production \
-    PORT=7860 \
-    NODE_OPTIONS="--max-old-space-size=2048"
-
+# Port expose karo
 EXPOSE 7860
 
-# Simplified startup (no health check to avoid startup delays)
+# App run karo
 CMD ["node", "server.js"]
