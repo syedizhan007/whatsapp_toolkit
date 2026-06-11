@@ -86,8 +86,11 @@
 
         log('🚀 Initializing test with userId: ' + TEST_USER_ID);
 
-        // Connect to Socket.IO with test userId
-        socket = io('http://localhost:3000', {
+        // Connect to Socket.IO - dynamic URL for production compatibility
+        const SOCKET_URL = window.location.origin;
+        log('🔌 Connecting to: ' + SOCKET_URL);
+
+        socket = io(SOCKET_URL, {
             auth: { userId: TEST_USER_ID },
             transports: ['websocket', 'polling']
         });

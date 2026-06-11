@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.supabase.co https://cdn.socket.io; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://cdn.socket.io; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; connect-src 'self' https://*.supabase.co ws://localhost:3000 http://localhost:3000 https://api.groq.com https://cdn.jsdelivr.net https://cdn.socket.io; img-src 'self' data: https:; font-src 'self' https://cdnjs.cloudflare.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.supabase.co https://cdn.socket.io; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.sheetjs.com https://cdn.socket.io; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; connect-src 'self' https://*.supabase.co wss://*.hf.space https://*.hf.space ws://localhost:3000 http://localhost:3000 https://api.groq.com https://cdn.jsdelivr.net https://cdn.socket.io; img-src 'self' data: https:; font-src 'self' https://cdnjs.cloudflare.com;">
     <title>WhatsApp Business Toolkit - Dashboard</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E💬%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -2653,7 +2653,11 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
 
                 console.log('✓ Initializing Socket.IO with userId:', userId);
 
-                socket = io('http://localhost:3000', {
+                // Use dynamic URL - works for both localhost and production (Hugging Face)
+                const SOCKET_URL = window.location.origin;
+                console.log('🔌 Connecting Socket.IO to:', SOCKET_URL);
+
+                socket = io(SOCKET_URL, {
                     auth: { userId: userId },  // Pass userId for server-side isolation
                     transports: ['websocket', 'polling']
                 });
@@ -6334,7 +6338,9 @@ JazzCash: 03001234567" style="width: 100%; padding: 16px; background: rgba(255,2
         window.renderCampaigns = renderCampaigns;
 
         // ===== BULK SENDER FUNCTIONS =====
-        const BULK_API_BASE = 'http://localhost:3000/api/bulk';
+        // Use dynamic API base - works for both localhost and production
+        const BULK_API_BASE = `${window.location.origin}/api/bulk`;
+        console.log('📡 API Base URL:', BULK_API_BASE);
         let currentCampaignId = null;
 
         async function loadWhatsAppStatus() {

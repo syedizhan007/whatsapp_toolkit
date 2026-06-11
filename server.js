@@ -147,19 +147,22 @@ if (!testResult) {
 }
 
 // ===== SUPABASE CLIENT =====
-// Load from environment variables for security
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://xrphyjkrzolqyowkkvzf.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhycGh5amtyem9scXlvd2trdnpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5NjM5NTIsImV4cCI6MjA5MzUzOTk1Mn0.Tk-ESBR82crBvISHFJAP2JE_zmkUc4YRgB7VgQtRBFE';
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Load from environment variables for security (REQUIRED - no fallback for production)
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
 
-console.log('✓ Supabase client initialized');
-
-// Validate Supabase configuration
+// Validate Supabase configuration BEFORE creating client
 if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.error('❌ CRITICAL: Missing Supabase configuration!');
-    console.error('   Please set SUPABASE_URL and SUPABASE_ANON_KEY in .env file');
+    console.error('   Please set SUPABASE_URL and SUPABASE_ANON_KEY environment variables');
+    console.error('   For Hugging Face: Add these as Repository Secrets in Space settings');
+    console.error('   For local dev: Create .env file from .env.example');
     process.exit(1);
 }
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+console.log('✓ Supabase client initialized');
+console.log(`   URL: ${SUPABASE_URL.substring(0, 30)}...`);
 
 // ===== MULTI-USER WHATSAPP CLIENTS =====
 // Each user gets their own isolated WhatsApp client
