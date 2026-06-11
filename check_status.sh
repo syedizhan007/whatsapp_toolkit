@@ -1,0 +1,85 @@
+#!/bin/bash
+# Hugging Face Space Status Checker
+# Usage: bash check_status.sh
+
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════╗"
+echo "║                                                               ║"
+echo "║         🔍 CHECKING HUGGING FACE SPACE STATUS 🔍            ║"
+echo "║                                                               ║"
+echo "╚═══════════════════════════════════════════════════════════════╝"
+echo ""
+
+SPACE_URL="https://izhan5-whatsapp-toolkit.hf.space"
+DASHBOARD_URL="https://izhan5-whatsapp-toolkit.hf.space/dashboard.html"
+
+echo "⏰ Current Time: $(date '+%I:%M:%S %p')"
+echo ""
+echo "📡 Testing Space URL: $SPACE_URL"
+echo ""
+
+# Check if space is responding
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$SPACE_URL" 2>/dev/null)
+
+if [ "$HTTP_CODE" == "200" ]; then
+    echo "✅ STATUS: LIVE! (HTTP $HTTP_CODE)"
+    echo ""
+    echo "🎉 WEBSITE IS RUNNING!"
+    echo ""
+    echo "📊 Dashboard URL:"
+    echo "   $DASHBOARD_URL"
+    echo ""
+    echo "🔐 Login Credentials:"
+    echo "   Username: admin"
+    echo "   Password: admin123"
+    echo ""
+    echo "✨ Next Steps:"
+    echo "   1. Open dashboard in browser"
+    echo "   2. Login with credentials above"
+    echo "   3. Click 'Connect WhatsApp'"
+    echo "   4. Scan QR code"
+    echo "   5. Start using! 🚀"
+    echo ""
+elif [ "$HTTP_CODE" == "503" ]; then
+    echo "⏳ STATUS: BUILDING... (HTTP $HTTP_CODE)"
+    echo ""
+    echo "🔵 Space is still building/starting"
+    echo ""
+    echo "⏰ Expected ready in: 5-10 minutes"
+    echo ""
+    echo "💡 What to do:"
+    echo "   - Wait 2-3 minutes"
+    echo "   - Run this script again"
+    echo "   - Or check: https://huggingface.co/spaces/izhan5/whatsapp-toolkit"
+    echo ""
+elif [ "$HTTP_CODE" == "000" ]; then
+    echo "❌ STATUS: UNREACHABLE (Connection timeout)"
+    echo ""
+    echo "⚠️  Possible reasons:"
+    echo "   - Space is building (wait 5 minutes)"
+    echo "   - Network issue on your end"
+    echo "   - Hugging Face service issue"
+    echo ""
+    echo "🔧 Try:"
+    echo "   - Check internet connection"
+    echo "   - Visit: https://huggingface.co/spaces/izhan5/whatsapp-toolkit"
+    echo "   - Wait and retry in 2 minutes"
+    echo ""
+else
+    echo "⚠️  STATUS: UNEXPECTED (HTTP $HTTP_CODE)"
+    echo ""
+    echo "📋 HTTP Status Codes:"
+    echo "   200 = Working ✅"
+    echo "   503 = Building ⏳"
+    echo "   404 = Not found ❌"
+    echo "   $HTTP_CODE = Check Space page"
+    echo ""
+    echo "🔗 Space Page:"
+    echo "   https://huggingface.co/spaces/izhan5/whatsapp-toolkit"
+    echo ""
+fi
+
+echo "═══════════════════════════════════════════════════════════════"
+echo ""
+echo "🔄 Run again: bash check_status.sh"
+echo ""
