@@ -1,3 +1,13 @@
+---
+title: WhatsApp Toolkit
+emoji: 📱
+colorFrom: green
+colorTo: blue
+sdk: docker
+pinned: false
+app_port: 7860
+---
+
 # WhatsApp Toolkit 📱
 
 A comprehensive multi-tenant WhatsApp automation platform with AI-powered responses, bulk messaging, and contact management.
