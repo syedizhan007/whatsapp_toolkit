@@ -1,7 +1,7 @@
 # WhatsApp Toolkit - Optimized for Hugging Face Spaces
 # Fast build with minimal layers
 
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
