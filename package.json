@@ -8,15 +8,6 @@
     "dev": "node server.js",
     "validate": "node index.js"
   },
-  "keywords": [
-    "whatsapp",
-    "automation",
-    "ai-agent",
-    "bulk-sender",
-    "validator",
-    "phone-verification",
-    "baileys"
-  ],
   "author": "izhan5",
   "license": "MIT",
   "engines": {
@@ -47,6 +38,7 @@
     "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",
     "socket.io": "^4.7.5",
+    "sql.js": "^1.10.3",
     "xlsx": "^0.18.5"
   }
 }
