@@ -5561,7 +5561,7 @@ console.log('📂 Loading contact cache from disk...');
 loadContactCache();
 
 // ===== START SERVER =====
-server.listen(PORT, async () => {
+server.listen(PORT, '0.0.0.0', async () => {
     console.log('╔════════════════════════════════════════════════════════╗');
     console.log('║                                                        ║');
     console.log('║     WhatsApp Toolkit Dashboard Server                 ║');
@@ -5569,7 +5569,7 @@ server.listen(PORT, async () => {
     console.log('║                                                        ║');
     console.log('╚════════════════════════════════════════════════════════╝');
     console.log('');
-    console.log(`🚀 Dashboard running on: http://localhost:${PORT}`);
+    console.log(`🚀 Server is successfully running on port ${PORT} and listening on 0.0.0.0`);
     console.log(`🔌 Socket.IO ready for real-time updates`);
     console.log('');
     console.log('📍 Available pages:');
