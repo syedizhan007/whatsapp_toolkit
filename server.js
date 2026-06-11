@@ -10,6 +10,7 @@ const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
 const ExcelJS = require('exceljs');
+const ws = require('ws'); // Required for Supabase realtime on Node.js < 22
 
 // Security packages
 const helmet = require('helmet');
@@ -158,7 +159,11 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
     console.warn('   Hugging Face: Go to Space Settings → Repository secrets');
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+    realtime: {
+        transport: ws // Required for Node.js < 22 (Hugging Face uses Node 20)
+    }
+});
 console.log('✓ Supabase client initialized');
 console.log(`   URL: ${SUPABASE_URL.substring(0, 30)}...`);
 
