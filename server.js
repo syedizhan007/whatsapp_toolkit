@@ -623,6 +623,15 @@ app.get('/.well-known/appspecific/com.chrome.devtools.json', (req, res) => {
     res.status(204).send(); // No Content - suppresses Chrome DevTools error
 });
 
+// ===== HEALTH CHECK ENDPOINT FOR HUGGING FACE =====
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
+
 // ===== PAGE ROUTES =====
 // Login page route
 app.get('/login', (req, res) => {
@@ -5624,7 +5633,7 @@ server.listen(PORT, '0.0.0.0', async () => {
     console.log('✓ WhatsApp Service initialized and accessible to backend modules');
 });
 
-// Handle server errors
+// Handle server errors (non-fatal for HF deployment)
 server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
         console.error(`❌ Error: Port ${PORT} is already in use`);
@@ -5632,10 +5641,13 @@ server.on('error', (error) => {
     } else {
         console.error('❌ Server error:', error);
     }
-    process.exit(1);
+    // Don't exit - let HF handle the restart
+    console.log('⚠️ Server error logged but continuing...');
 });
 
-    // Graceful Shutdown: Ensure all user browsers close
+    // Graceful Shutdown disabled for Hugging Face
+    // SIGINT can be triggered by HF health checks
+    /*
     process.on('SIGINT', async () => {
         console.log('\n\n👋 Shutting down WhatsApp clients...');
 
@@ -5655,6 +5667,7 @@ server.on('error', (error) => {
         console.log('✅ All WhatsApp clients closed');
         process.exit(0);
     });
+    */
 
     // Handle termination (disabled for Hugging Face deployment)
     // SIGTERM can be triggered by HF health checks, causing premature shutdowns
