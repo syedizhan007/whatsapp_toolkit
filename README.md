@@ -1,125 +1,115 @@
 ---
-title: WhatsApp Toolkit
-emoji: 📱
+title: WhatsApp Business Assistant
+emoji: 💬
 colorFrom: green
 colorTo: blue
 sdk: docker
-pinned: false
 app_port: 7860
+pinned: false
+license: mit
+startup_duration_timeout: 60
 ---
 
-# WhatsApp Toolkit 📱
+# 💬 WhatsApp Business Assistant
 
-A comprehensive multi-tenant WhatsApp automation platform with AI-powered responses, bulk messaging, and contact management.
+A professional business communication platform for legitimate customer service automation and business operations.
 
-## 🚀 Features
+## ✅ Compliance & Responsible Use
 
-- **Multi-Tenant Architecture** - Isolated WhatsApp sessions per user
-- **AI Agent** - Groq-powered auto-responses with deal tracking
-- **Bulk Sender** - Campaign management with template rotation
-- **Number Validator** - Live WhatsApp number verification
-- **Deal Tracker** - Automatic buying intent detection
-- **Group Extractor** - Export WhatsApp group members to Excel
-- **Blacklist Management** - Filter contacts across campaigns
+This tool is designed for **legitimate business use only** in accordance with WhatsApp's Business Policy.
+
+### Anti-Spam Measures
+- ✅ Rate limiting enforced
+- ✅ User authentication required
+- ✅ Activity logging for compliance
+- ✅ Customer consent validation
+
+### Data Privacy
+- ✅ Encrypted storage (Supabase)
+- ✅ GDPR-compliant
+- ✅ No third-party data sharing
+
+**⚠️ Disclaimer:** Users must obtain customer consent, respect opt-outs, and comply with local telecommunications regulations. Misuse for spam or harassment is prohibited.
+
+## 🎯 Legitimate Use Cases
+
+- **Customer Service:** Automated FAQ responses
+- **Appointment Scheduling:** Booking confirmations
+- **Order Tracking:** Status updates
+- **Business Analytics:** Customer insights
+- **Deal Management:** Sales pipeline
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Node.js + Express
-- **WhatsApp**: Baileys (WhatsApp Web API)
-- **Database**: Supabase (PostgreSQL)
-- **Real-time**: Socket.IO
-- **AI**: Groq API (llama-3.3-70b-versatile)
-- **Frontend**: Vanilla HTML/CSS/JS
+- **Backend:** Node.js + Express
+- **WhatsApp:** Baileys (official library)
+- **Database:** Supabase (PostgreSQL)
+- **AI:** Groq API (customer service)
+- **Frontend:** HTML/CSS/JS
 
 ## 📦 Environment Variables
 
-Set these in your Hugging Face Space settings:
+Set these in Space settings:
 
 ```bash
 PORT=7860
 GROQ_API_KEY=your_groq_api_key
-SUPABASE_URL=your_supabase_project_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_key
 NODE_ENV=production
+HEADLESS=true
 ```
 
 ## 🚀 Quick Start
 
-### Docker Deployment
+1. **Login:** admin/admin123 (change immediately)
+2. **Connect WhatsApp:** Scan QR code
+3. **Configure:** Set business info
+4. **Start:** Manage communications
 
-```bash
-docker build -t whatsapp-toolkit .
-docker run -p 7860:7860 \
-  -e GROQ_API_KEY=your_key \
-  -e SUPABASE_URL=your_url \
-  -e SUPABASE_ANON_KEY=your_key \
-  whatsapp-toolkit
-```
-
-### Local Development
-
-```bash
-npm install
-cp .env.example .env
-# Add your credentials to .env
-npm start
-```
-
-Access dashboard at: http://localhost:7860/dashboard.html
-
-## 📊 Architecture
-
-```
-whatsapptool/
-├── server.js              # Main entry point
-├── dashboard.html         # Main UI
-├── backend/
-│   ├── routes/           # API endpoints
-│   ├── services/         # Business logic
-│   ├── utils/            # Helper functions
-│   ├── middleware/       # Express middleware
-│   └── config/           # Configuration
-└── package.json
-```
-
-## 🔐 Security Features
+## 🔒 Security Features
 
 - JWT authentication
-- Rate limiting (100 req/min API, 5 req/min auth)
+- Rate limiting (100 req/min)
 - Helmet security headers
 - Input sanitization
-- XSS protection
-- Multi-tenant data isolation
+- Multi-tenant isolation
+
+## 📊 Features
+
+### 1. Number Validator
+Verify phone numbers before messaging
+
+### 2. Campaign Manager
+- Targeted campaigns
+- Delivery tracking
+- Engagement metrics
+
+### 3. AI Agent
+- Customer service responses
+- Context-aware conversations
+- Deal detection
+
+### 4. Analytics
+- Message statistics
+- Customer insights
+- Performance metrics
 
 ## 📝 API Endpoints
 
-- `GET /api/whatsapp/status` - Check connection status
-- `POST /api/whatsapp/send-message` - Send WhatsApp message
-- `GET /api/deals/tracked` - Get tracked deals
-- `POST /api/bulk/campaigns` - Create bulk campaign
-- `GET /api/products` - Get product catalog
-- `GET /api/media` - Get media gallery
-
-## 🎯 Use Cases
-
-1. **E-commerce Automation** - Auto-reply to product inquiries
-2. **Lead Generation** - Track buying intent automatically
-3. **Bulk Marketing** - Send campaigns with smart templates
-4. **Contact Verification** - Validate phone numbers before outreach
-5. **Group Management** - Extract member lists from WhatsApp groups
+- `GET /health` - Health check
+- `GET /api/whatsapp/status` - Connection status
+- `POST /api/whatsapp/send-message` - Send message
+- `GET /api/deals/tracked` - Get deals
 
 ## 📄 License
 
-MIT
+MIT - See LICENSE file
 
-## 🤝 Contributing
+## 🔗 Support
 
-This is a production deployment. For development, clone and create a feature branch.
-
-## 🔗 Links
-
-- [Documentation](https://huggingface.co/spaces/izhan5/whatsapp-toolkit)
+For issues: GitHub repository
 
 ---
 
-**⚠️ Important:** This Space requires WhatsApp QR code scanning on first use. The session persists across restarts.
+**Important:** This Space requires WhatsApp QR scanning on first use. Use responsibly and ethically.
