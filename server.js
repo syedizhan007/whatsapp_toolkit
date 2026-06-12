@@ -5656,7 +5656,10 @@ server.on('error', (error) => {
         process.exit(0);
     });
 
-    // Handle termination
+    // Handle termination (disabled for Hugging Face deployment)
+    // SIGTERM can be triggered by HF health checks, causing premature shutdowns
+    // Uncomment only if you need graceful shutdown in production
+    /*
     process.on('SIGTERM', async () => {
         console.log('\n\n👋 Shutting down WhatsApp clients...');
 
@@ -5676,6 +5679,20 @@ server.on('error', (error) => {
         console.log('✅ All WhatsApp clients closed');
         process.exit(0);
     });
+    */
+
+    // Error handlers to prevent crashes
+    process.on('uncaughtException', (err) => {
+        console.error('⚠️ Uncaught Exception:', err);
+        // Don't exit - keep server running
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+        console.error('⚠️ Unhandled Rejection at', promise, 'reason:', reason);
+        // Don't exit - keep server running
+    });
+
+    console.log('✅ Error handlers configured to keep server alive');
 
 // Export for use in other modules
 module.exports = {
