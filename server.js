@@ -60,10 +60,16 @@ function safeNormalizeJid(rawJid) {
         throw new Error('JID cannot be empty');
     }
 
+    // Step 2.5: Handle bare phone numbers (add @s.whatsapp.net if missing)
+    let jidToNormalize = rawJid.trim();
+    if (!jidToNormalize.includes('@')) {
+        jidToNormalize = jidToNormalize + '@s.whatsapp.net';
+    }
+
     // Step 3: Use Baileys' jidNormalizedUser to normalize the JID
     let normalizedJid;
     try {
-        normalizedJid = jidNormalizedUser(rawJid);
+        normalizedJid = jidNormalizedUser(jidToNormalize);
     } catch (normalizeError) {
         throw new Error(`JID normalization failed: ${normalizeError.message}`);
     }
