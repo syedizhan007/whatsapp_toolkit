@@ -30,6 +30,12 @@ const campaignRoutes = require('./backend/routes/campaigns');
 const { getInstance: getBulkSenderService } = require('./backend/services/bulkSenderService');
 
 const app = express();
+
+// ===== TRUST PROXY FOR HUGGING FACE SPACES =====
+// Critical: HF Spaces runs behind a reverse proxy
+// Without this, express-rate-limit throws ValidationError on first request
+app.set('trust proxy', 1); // Trust 1 proxy hop (HF's proxy)
+
 const server = http.createServer(app);
 const io = socketIO(server, {
     cors: {
@@ -563,6 +569,10 @@ const apiLimiter = rateLimit({
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
     legacyHeaders: false, // Disable `X-RateLimit-*` headers
+    // Fix for HF Spaces: Disable X-Forwarded-For validation error
+    validate: {
+        xForwardedForHeader: false,
+    },
 });
 
 // Strict rate limiter for authentication endpoints (5 requests per minute)
@@ -572,6 +582,10 @@ const authLimiter = rateLimit({
     message: 'Too many authentication attempts, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
+    // Fix for HF Spaces: Disable X-Forwarded-For validation error
+    validate: {
+        xForwardedForHeader: false,
+    },
 });
 
 // Apply rate limiters
