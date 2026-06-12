@@ -1,7 +1,7 @@
 # WhatsApp Toolkit - Production Dockerfile
 # Optimized for Hugging Face Spaces deployment
 
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Set working directory
 WORKDIR /app
